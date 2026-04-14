@@ -23,6 +23,7 @@ COCOTB_TOPLEVEL     = $(DUT)
 MODULE   = $(COCOTB_TEST_MODULES)
 TOPLEVEL = $(COCOTB_TOPLEVEL)
 VERILOG_SOURCES += $(RTL_DIR)/$(DUT).sv
+VERILOG_SOURCES += $(TAXI_SRC_DIR)/eth/rtl/taxi_eth_mac_1g_fifo.f
 VERILOG_SOURCES += $(TAXI_SRC_DIR)/eth/rtl/taxi_eth_mac_1g_rgmii_fifo.f
 VERILOG_SOURCES += $(TAXI_SRC_DIR)/xfcp/rtl/taxi_xfcp_if_uart.f
 VERILOG_SOURCES += $(TAXI_SRC_DIR)/xfcp/rtl/taxi_xfcp_switch.sv

@@ -22,7 +22,7 @@ module fpga_core #
     // vendor ("GENERIC", "XILINX", "ALTERA")
     parameter string VENDOR = "XILINX",
     // device family
-    parameter string FAMILY = "kintex7",
+    parameter string FAMILY = "artix7",
     // Use 90 degree clock for RGMII transmit
     parameter logic USE_CLK90 = 1'b1
 )
@@ -61,6 +61,21 @@ module fpga_core #
     output wire logic        i2c_scl_o,
     input  wire logic        i2c_sda_i,
     output wire logic        i2c_sda_o,
+
+    /*
+     * Ethernet: 1000BASE-X SFP
+     */
+    input  wire logic        sfp_gmii_clk,
+    input  wire logic        sfp_gmii_rst,
+    input  wire logic        sfp_gmii_clk_en,
+    input  wire logic [7:0]  sfp_gmii_rxd,
+    input  wire logic        sfp_gmii_rx_dv,
+    input  wire logic        sfp_gmii_rx_er,
+    output wire logic [7:0]  sfp_gmii_txd,
+    output wire logic        sfp_gmii_tx_en,
+    output wire logic        sfp_gmii_tx_er,
+    output wire logic        sfp_tx_disable,
+    input  wire logic        sfp_rx_los,
 
     /*
      * Ethernet: 1000BASE-T
@@ -157,7 +172,7 @@ xfcp_stats_inst (
     .s_axis_stat(axis_stat)
 );
 
-taxi_axis_if #(.DATA_W(16), .KEEP_W(1), .KEEP_EN(0), .LAST_EN(0), .USER_EN(1), .USER_W(1), .ID_EN(1), .ID_W(10)) axis_eth_stat[1]();
+taxi_axis_if #(.DATA_W(16), .KEEP_W(1), .KEEP_EN(0), .LAST_EN(0), .USER_EN(1), .USER_W(1), .ID_EN(1), .ID_W(10)) axis_eth_stat[2]();
 
 taxi_axis_arb_mux #(
     .S_COUNT($size(axis_eth_stat)),
@@ -229,7 +244,7 @@ taxi_eth_mac_1g_rgmii_fifo #(
     .RX_FIFO_DEPTH(16384),
     .RX_FRAME_FIFO(1)
 )
-eth_mac_inst (
+baset_mac_inst (
     .gtx_clk(clk),
     .gtx_clk90(clk90),
     .gtx_rst(rst),
@@ -277,6 +292,94 @@ eth_mac_inst (
     .rx_fifo_bad_frame(),
     .rx_fifo_good_frame(),
     .link_speed(),
+
+    /*
+     * Configuration
+     */
+    .cfg_tx_max_pkt_len(16'd9218),
+    .cfg_tx_ifg(8'd12),
+    .cfg_tx_enable(1'b1),
+    .cfg_rx_max_pkt_len(16'd9218),
+    .cfg_rx_enable(1'b1)
+);
+
+// SFP+
+assign sfp_tx_disable = 1'b0;
+
+taxi_axis_if #(.DATA_W(8), .ID_W(8), .USER_EN(1), .USER_W(1)) axis_sfp_eth();
+taxi_axis_if #(.DATA_W(96), .KEEP_W(1), .ID_W(8)) axis_sfp_tx_cpl();
+
+taxi_eth_mac_1g_fifo #(
+    .PADDING_EN(1),
+    .MIN_FRAME_LEN(64),
+    .STAT_EN(1),
+    .STAT_TX_LEVEL(1),
+    .STAT_RX_LEVEL(1),
+    .STAT_ID_BASE(16+16),
+    .STAT_UPDATE_PERIOD(1024),
+    .STAT_STR_EN(1),
+    .STAT_PREFIX_STR("SFP"),
+    .TX_FIFO_DEPTH(16384),
+    .TX_FRAME_FIFO(1),
+    .RX_FIFO_DEPTH(16384),
+    .RX_FRAME_FIFO(1)
+)
+sfp_mac_inst (
+    .rx_clk(sfp_gmii_clk),
+    .rx_rst(sfp_gmii_rst),
+    .tx_clk(sfp_gmii_clk),
+    .tx_rst(sfp_gmii_rst),
+    .logic_clk(clk),
+    .logic_rst(rst),
+
+    /*
+     * Transmit interface (AXI stream)
+     */
+    .s_axis_tx(axis_sfp_eth),
+    .m_axis_tx_cpl(axis_sfp_tx_cpl),
+
+    /*
+     * Receive interface (AXI stream)
+     */
+    .m_axis_rx(axis_sfp_eth),
+
+    /*
+     * GMII interface
+     */
+    .gmii_rxd(sfp_gmii_rxd),
+    .gmii_rx_dv(sfp_gmii_rx_dv),
+    .gmii_rx_er(sfp_gmii_rx_er),
+    .gmii_txd(sfp_gmii_txd),
+    .gmii_tx_en(sfp_gmii_tx_en),
+    .gmii_tx_er(sfp_gmii_tx_er),
+
+    /*
+     * Control
+     */
+    .rx_clk_enable(sfp_gmii_clk_en),
+    .tx_clk_enable(sfp_gmii_clk_en),
+    .rx_mii_select(1'b0),
+    .tx_mii_select(1'b0),
+
+    /*
+     * Statistics
+     */
+    .stat_clk(clk),
+    .stat_rst(rst),
+    .m_axis_stat(axis_eth_stat[1]),
+
+    /*
+     * Status
+     */
+    .tx_error_underflow(),
+    .tx_fifo_overflow(),
+    .tx_fifo_bad_frame(),
+    .tx_fifo_good_frame(),
+    .rx_error_bad_frame(),
+    .rx_error_bad_fcs(),
+    .rx_fifo_overflow(),
+    .rx_fifo_bad_frame(),
+    .rx_fifo_good_frame(),
 
     /*
      * Configuration

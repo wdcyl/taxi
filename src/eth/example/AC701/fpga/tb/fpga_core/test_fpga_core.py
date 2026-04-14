@@ -12,7 +12,6 @@ Authors:
 import logging
 import os
 
-import pytest
 import cocotb_test.simulator
 
 import cocotb
@@ -30,13 +29,20 @@ class TB:
         self.log = logging.getLogger("cocotb.tb")
         self.log.setLevel(logging.DEBUG)
 
-        # cocotb.start_soon(Clock(dut.phy_sgmii_clk, 8, units="ns").start())
-
         self.baset_phy = RgmiiPhy(dut.phy_txd, dut.phy_tx_ctl, dut.phy_tx_clk,
             dut.phy_rxd, dut.phy_rx_ctl, dut.phy_rx_clk, speed=speed)
 
+        cocotb.start_soon(Clock(dut.sfp_gmii_clk, 8, units="ns").start())
+
+        self.sfp_source = GmiiSource(dut.sfp_gmii_rxd, dut.sfp_gmii_rx_er, dut.sfp_gmii_rx_dv,
+            dut.sfp_gmii_clk, dut.sfp_gmii_rst, dut.sfp_gmii_clk_en)
+        self.sfp_sink = GmiiSink(dut.sfp_gmii_txd, dut.sfp_gmii_tx_er, dut.sfp_gmii_tx_en,
+            dut.sfp_gmii_clk, dut.sfp_gmii_rst, dut.sfp_gmii_clk_en)
+
         self.uart_source = UartSource(dut.uart_rxd, baud=921600, bits=8, stop_bits=1)
         self.uart_sink = UartSink(dut.uart_txd, baud=921600, bits=8, stop_bits=1)
+
+        dut.sfp_gmii_clk_en.setimmediatevalue(1)
 
         dut.btnu.setimmediatevalue(0)
         dut.btnl.setimmediatevalue(0)
@@ -51,16 +57,19 @@ class TB:
     async def init(self):
 
         self.dut.rst.setimmediatevalue(0)
+        self.dut.sfp_gmii_rst.setimmediatevalue(0)
 
         for k in range(10):
             await RisingEdge(self.dut.clk)
 
         self.dut.rst.value = 1
+        self.dut.sfp_gmii_rst.value = 1
 
         for k in range(10):
             await RisingEdge(self.dut.clk)
 
         self.dut.rst.value = 0
+        self.dut.sfp_gmii_rst.value = 0
 
     async def _run_clk(self):
         t = Timer(2, 'ns')
@@ -130,6 +139,10 @@ async def run_test(dut):
 
     tests.append(cocotb.start_soon(mac_test(tb, tb.baset_phy.rx, tb.baset_phy.tx)))
 
+    tb.log.info("Start SFP MAC loopback test")
+
+    tests.append(cocotb.start_soon(mac_test(tb, tb.sfp_source, tb.sfp_sink)))
+
     await Combine(*tests)
 
     await RisingEdge(dut.clk)
@@ -164,6 +177,7 @@ def test_fpga_core(request):
 
     verilog_sources = [
         os.path.join(rtl_dir, f"{dut}.sv"),
+        os.path.join(taxi_src_dir, "eth", "rtl", "taxi_eth_mac_1g_fifo.f"),
         os.path.join(taxi_src_dir, "eth", "rtl", "taxi_eth_mac_1g_rgmii_fifo.f"),
         os.path.join(taxi_src_dir, "xfcp", "rtl", "taxi_xfcp_if_uart.f"),
         os.path.join(taxi_src_dir, "xfcp", "rtl", "taxi_xfcp_switch.sv"),

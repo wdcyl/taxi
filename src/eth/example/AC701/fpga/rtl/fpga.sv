@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /*
 
-Copyright (c) 2014-2026 FPGA Ninja, LLC
+Copyright (c) 2014-2025 FPGA Ninja, LLC
 
 Authors:
 - Alex Forencich
@@ -60,6 +60,20 @@ module fpga #
     inout  wire logic        i2c_scl,
     inout  wire logic        i2c_sda,
     output wire logic        i2c_mux_reset,
+
+    /*
+     * Ethernet: SFP+
+     */
+    input  wire logic        sfp_rx_p,
+    input  wire logic        sfp_rx_n,
+    output wire logic        sfp_tx_p,
+    output wire logic        sfp_tx_n,
+    input  wire logic        sfp_mgt_refclk_0_p,
+    input  wire logic        sfp_mgt_refclk_0_n,
+    output wire logic [1:0]  sfp_mgt_clk_sel,
+
+    output wire logic        sfp_tx_disable,
+    input  wire logic        sfp_rx_los,
 
     /*
      * Ethernet: 1000BASE-T RGMII
@@ -259,6 +273,113 @@ assign i2c_scl = i2c_scl_o ? 1'bz : 1'b0;
 assign i2c_sda_i = i2c_sda;
 assign i2c_sda = i2c_sda_o ? 1'bz : 1'b0;
 
+// 1000BASE-X SFP
+assign sfp_mgt_clk_sel = 2'b00;
+
+wire sfp_gmii_clk_int;
+wire sfp_gmii_rst_int;
+wire sfp_gmii_clk_en_int;
+wire [7:0] sfp_gmii_txd_int;
+wire sfp_gmii_tx_en_int;
+wire sfp_gmii_tx_er_int;
+wire [7:0] sfp_gmii_rxd_int;
+wire sfp_gmii_rx_dv_int;
+wire sfp_gmii_rx_er_int;
+
+wire sfp_gtrefclk;
+wire sfp_gtrefclk_bufg;
+wire sfp_txuserclk;
+wire sfp_txuserclk2;
+wire sfp_rxuserclk;
+wire sfp_rxuserclk2;
+wire sfp_pma_reset;
+wire sfp_mmcm_locked;
+
+wire sfp_resetdone;
+
+assign sfp_gmii_clk_int = sfp_txuserclk2;
+
+taxi_sync_reset #(
+    .N(4)
+)
+sync_reset_sfp_inst (
+    .clk(sfp_gmii_clk_int),
+    .rst(rst_int || !sfp_resetdone),
+    .out(sfp_gmii_rst_int)
+);
+
+wire [15:0] sfp_status_vect;
+
+wire sfp_status_link_status              = sfp_status_vect[0];
+wire sfp_status_link_synchronization     = sfp_status_vect[1];
+wire sfp_status_rudi_c                   = sfp_status_vect[2];
+wire sfp_status_rudi_i                   = sfp_status_vect[3];
+wire sfp_status_rudi_invalid             = sfp_status_vect[4];
+wire sfp_status_rxdisperr                = sfp_status_vect[5];
+wire sfp_status_rxnotintable             = sfp_status_vect[6];
+wire sfp_status_phy_link_status          = sfp_status_vect[7];
+wire [1:0] sfp_status_remote_fault_encdg = sfp_status_vect[9:8];
+wire [1:0] sfp_status_speed              = sfp_status_vect[11:10];
+wire sfp_status_duplex                   = sfp_status_vect[12];
+wire sfp_status_remote_fault             = sfp_status_vect[13];
+wire [1:0] sfp_status_pause              = sfp_status_vect[15:14];
+
+wire [4:0] sfp_config_vect;
+
+assign sfp_config_vect[4] = 1'b0; // autonegotiation enable
+assign sfp_config_vect[3] = 1'b0; // isolate
+assign sfp_config_vect[2] = 1'b0; // power down
+assign sfp_config_vect[1] = 1'b0; // loopback enable
+assign sfp_config_vect[0] = 1'b0; // unidirectional enable
+
+basex_pcs_pma_0
+sfp_pcspma (
+    // Transceiver Interface
+    .gtrefclk_p(sfp_mgt_refclk_0_p),
+    .gtrefclk_n(sfp_mgt_refclk_0_n),
+    .gtrefclk_out(sfp_gtrefclk),
+    .gtrefclk_bufg_out(sfp_gtrefclk_bufg),
+    .txp(sfp_tx_p),
+    .txn(sfp_tx_n),
+    .rxp(sfp_rx_p),
+    .rxn(sfp_rx_n),
+    .resetdone(sfp_resetdone),
+    .userclk_out(sfp_txuserclk),
+    .userclk2_out(sfp_txuserclk2),
+    .rxuserclk_out(sfp_rxuserclk),
+    .rxuserclk2_out(sfp_rxuserclk2),
+    .independent_clock_bufg(clk_int),
+    .pma_reset_out(sfp_pma_reset),
+    .mmcm_locked_out(sfp_mmcm_locked),
+    .gt0_pll0outclk_out(),
+    .gt0_pll0outrefclk_out(),
+    .gt0_pll1outclk_out(),
+    .gt0_pll1outrefclk_out(),
+    .gt0_pll0lock_out(),
+    .gt0_pll0refclklost_out(),
+    // GMII Interface
+    .gmii_txd(sfp_gmii_txd_int),
+    .gmii_tx_en(sfp_gmii_tx_en_int),
+    .gmii_tx_er(sfp_gmii_tx_er_int),
+    .gmii_rxd(sfp_gmii_rxd_int),
+    .gmii_rx_dv(sfp_gmii_rx_dv_int),
+    .gmii_rx_er(sfp_gmii_rx_er_int),
+    .gmii_isolate(),
+    // Management: Alternative to MDIO Interface
+    .configuration_vector(sfp_config_vect),
+    .status_vector(sfp_status_vect),
+    // General IO's
+    .reset(rst_int),
+    .signal_detect(1'b1)
+);
+
+assign sfp_gmii_clk_en_int = 1'b1;
+
+// SGMII interface debug:
+// SW4:1 (sw[3]) off for payload byte, on for status vector
+// SW4:4 (sw[0]) off for LSB of status vector, on for MSB
+// assign led = sw[3] ? (sw[0] ? sfp_status_vect[15:8] : sfp_status_vect[7:0]) : led_int;
+
 wire [3:0] phy_rxd_int;
 wire phy_rx_ctl_int;
 
@@ -334,7 +455,7 @@ core_inst (
     .btnr(btnr_int),
     .btnc(btnc_int),
     .sw(sw_int),
-    .led(led_int),
+    .led(led),
 
     /*
      * UART: 115200 bps, 8N1
@@ -351,6 +472,21 @@ core_inst (
     .i2c_scl_o(i2c_scl_o),
     .i2c_sda_i(i2c_sda_i),
     .i2c_sda_o(i2c_sda_o),
+
+    /*
+     * Ethernet: 1000BASE-X SFP
+     */
+    .sfp_gmii_clk(sfp_gmii_clk_int),
+    .sfp_gmii_rst(sfp_gmii_rst_int),
+    .sfp_gmii_clk_en(sfp_gmii_clk_en_int),
+    .sfp_gmii_rxd(sfp_gmii_rxd_int),
+    .sfp_gmii_rx_dv(sfp_gmii_rx_dv_int),
+    .sfp_gmii_rx_er(sfp_gmii_rx_er_int),
+    .sfp_gmii_txd(sfp_gmii_txd_int),
+    .sfp_gmii_tx_en(sfp_gmii_tx_en_int),
+    .sfp_gmii_tx_er(sfp_gmii_tx_er_int),
+    .sfp_tx_disable(sfp_tx_disable),
+    .sfp_rx_los(sfp_rx_los),
 
     /*
      * Ethernet: 1000BASE-T RGMII
