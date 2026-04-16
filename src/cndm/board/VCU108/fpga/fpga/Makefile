@@ -31,7 +31,12 @@ SYN_FILES += $(TAXI_SRC_DIR)/io/rtl/taxi_debounce_switch.sv
 SYN_FILES += $(TAXI_SRC_DIR)/pyrite/rtl/pyrite_pcie_us_vsec_bpi.f
 
 # XDC files
-XDC_FILES = ../fpga.xdc
+XDC_FILES += ../syn/fpga.xdc
+XDC_FILES += ../syn/gpio.xdc
+XDC_FILES += ../syn/phy.xdc
+XDC_FILES += ../syn/qsfp.xdc
+XDC_FILES += ../syn/pcie.xdc
+XDC_FILES += ../syn/bpi.xdc
 XDC_FILES += $(TAXI_SRC_DIR)/eth/syn/vivado/taxi_eth_mac_fifo.tcl
 XDC_FILES += $(TAXI_SRC_DIR)/axis/syn/vivado/taxi_axis_async_fifo.tcl
 XDC_FILES += $(TAXI_SRC_DIR)/ptp/syn/vivado/taxi_ptp_td_leaf.tcl
