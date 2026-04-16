@@ -30,7 +30,10 @@ SYN_FILES += $(TAXI_SRC_DIR)/sync/rtl/taxi_sync_signal.sv
 SYN_FILES += $(TAXI_SRC_DIR)/io/rtl/taxi_debounce_switch.sv
 
 # XDC files
-XDC_FILES = ../fpga.xdc
+XDC_FILES += ../syn/fpga.xdc
+XDC_FILES += ../syn/gpio.xdc
+XDC_FILES += ../syn/sfp.xdc
+XDC_FILES += ../syn/pcie.xdc
 XDC_FILES += $(TAXI_SRC_DIR)/eth/syn/vivado/taxi_eth_mac_fifo.tcl
 XDC_FILES += $(TAXI_SRC_DIR)/axis/syn/vivado/taxi_axis_async_fifo.tcl
 XDC_FILES += $(TAXI_SRC_DIR)/ptp/syn/vivado/taxi_ptp_td_leaf.tcl
