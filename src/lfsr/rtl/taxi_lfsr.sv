@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: CERN-OHL-S-2.0
 /*
 
-Copyright (c) 2016-2025 FPGA Ninja, LLC
+Copyright (c) 2016-2026 FPGA Ninja, LLC
 
 Authors:
 - Alex Forencich
@@ -31,7 +31,10 @@ module taxi_lfsr #
     parameter DATA_W = 8,
     // enable data input and output
     parameter logic DATA_IN_EN = 1'b1,
-    parameter logic DATA_OUT_EN = 1'b1
+    parameter logic DATA_OUT_EN = 1'b1,
+    // shift control
+    parameter STATE_SHIFT_PRE = 0,
+    parameter STATE_SHIFT_POST = 0
 )
 (
     input  wire logic [DATA_W-1:0]  data_in,
@@ -150,6 +153,21 @@ Specify width of input and output data bus.  The module will perform one shift p
 data bit, so if the input data bus is not required tie data_in to zero and set DATA_W
 to the required number of shifts per clock cycle.
 
+DATA_IN_EN, DATA_OUT_EN
+
+Enable data input and/or output ports.  Useful for CRC computation where the
+data shifted out of the register is not used, or PRBS generation where no data
+is shifted in to the register.  Disabling unused inputs and outputs will
+increase simulation speed.
+
+STATE_SHIFT_PRE, STATE_SHIFT_POST
+
+Shift the state before/after shifting the data.  Useful for either shifting the
+state only, or for performing a split CRC computation on a wide/segmented data
+bus.  Positive shift values are equivalent to extending the data input port with
+zeros.  Negative shift amounts shift the state backwards, useful for removing
+zero padding and similar.
+
 Settings for common LFSR/CRC implementations:
 
 Name        Configuration           Length  Polynomial      Initial value   Notes
@@ -210,75 +228,318 @@ function [OUT_W-1:0][IN_W-1:0] lfsr_mask();
     // simulate shift register
     if (LFSR_GALOIS) begin
         // Galois configuration
-        for (data_mask = {1'b1, {DATA_W-1{1'b0}}}; data_mask != 0; data_mask = data_mask >> 1) begin
-            // determine shift in value
-            // current value in last FF, XOR with input data bit (MSB first)
-            state_val = lfsr_mask_state[LFSR_W-1];
-            data_val = lfsr_mask_data[LFSR_W-1];
-            data_val = data_val ^ data_mask;
 
-            // shift
-            for (integer j = LFSR_W-1; j > 0; j = j - 1) begin
-                lfsr_mask_state[j] = lfsr_mask_state[j-1];
-                lfsr_mask_data[j] = lfsr_mask_data[j-1];
-            end
-            for (integer j = DATA_W-1; j > 0; j = j - 1) begin
-                output_mask_state[j] = output_mask_state[j-1];
-                output_mask_data[j] = output_mask_data[j-1];
-            end
-            output_mask_state[0] = state_val;
-            output_mask_data[0] = data_val;
-            if (LFSR_FEED_FORWARD) begin
-                // only shift in new input data
-                state_val = '0;
-                data_val = data_mask;
-            end
-            lfsr_mask_state[0] = state_val;
-            lfsr_mask_data[0] = data_val;
+        // Shift state alone before shifting data
+        if (STATE_SHIFT_PRE > 0) begin
+            // forward shift
+            for (integer i = 0; i < STATE_SHIFT_PRE; i = i + 1) begin
+                // determine shift in value
+                // current value in last FF, XOR with input data bit (MSB first)
+                state_val = lfsr_mask_state[LFSR_W-1];
+                data_val = lfsr_mask_data[LFSR_W-1];
 
-            // add XOR inputs at correct indicies
-            for (integer j = 1; j < LFSR_W; j = j + 1) begin
-                if (LFSR_POLY[j]) begin
-                    lfsr_mask_state[j] = lfsr_mask_state[j] ^ state_val;
-                    lfsr_mask_data[j] = lfsr_mask_data[j] ^ data_val;
+                // shift
+                for (integer j = LFSR_W-1; j > 0; j = j - 1) begin
+                    lfsr_mask_state[j] = lfsr_mask_state[j-1];
+                    lfsr_mask_data[j] = lfsr_mask_data[j-1];
                 end
+                if (LFSR_FEED_FORWARD) begin
+                    // only shift in new input data
+                    state_val = '0;
+                    data_val = '0;
+                end
+                lfsr_mask_state[0] = state_val;
+                lfsr_mask_data[0] = data_val;
+
+                // add XOR inputs at correct indicies
+                for (integer j = 1; j < LFSR_W; j = j + 1) begin
+                    if (LFSR_POLY[j]) begin
+                        lfsr_mask_state[j] = lfsr_mask_state[j] ^ state_val;
+                        lfsr_mask_data[j] = lfsr_mask_data[j] ^ data_val;
+                    end
+                end
+            end
+        end else if (STATE_SHIFT_PRE < 0) begin
+            // reverse shift
+            for (integer i = 0; i < -STATE_SHIFT_PRE; i = i + 1) begin
+                state_val = lfsr_mask_state[0];
+                data_val = lfsr_mask_data[0];
+
+                // add XOR inputs at correct indicies
+                for (integer j = 1; j < LFSR_W; j = j + 1) begin
+                    if (LFSR_POLY[j]) begin
+                        lfsr_mask_state[j] = lfsr_mask_state[j] ^ state_val;
+                        lfsr_mask_data[j] = lfsr_mask_data[j] ^ data_val;
+                    end
+                end
+
+                // shift
+                for (integer j = 0; j < LFSR_W-1; j = j + 1) begin
+                    lfsr_mask_state[j] = lfsr_mask_state[j+1];
+                    lfsr_mask_data[j] = lfsr_mask_data[j+1];
+                end
+                if (LFSR_FEED_FORWARD) begin
+                    // only shift in new input data
+                    state_val = '0;
+                    data_val = '0;
+                end
+                lfsr_mask_state[LFSR_W-1] = state_val;
+                lfsr_mask_data[LFSR_W-1] = data_val;
+            end
+        end
+
+        // Shift data
+        if (DATA_IN_EN || DATA_OUT_EN) begin
+            for (data_mask = {1'b1, {DATA_W-1{1'b0}}}; data_mask != 0; data_mask = data_mask >> 1) begin
+                // determine shift in value
+                // current value in last FF, XOR with input data bit (MSB first)
+                state_val = lfsr_mask_state[LFSR_W-1];
+                data_val = lfsr_mask_data[LFSR_W-1];
+                data_val = data_val ^ data_mask;
+
+                // shift
+                for (integer j = LFSR_W-1; j > 0; j = j - 1) begin
+                    lfsr_mask_state[j] = lfsr_mask_state[j-1];
+                    lfsr_mask_data[j] = lfsr_mask_data[j-1];
+                end
+                for (integer j = DATA_W-1; j > 0; j = j - 1) begin
+                    output_mask_state[j] = output_mask_state[j-1];
+                    output_mask_data[j] = output_mask_data[j-1];
+                end
+                output_mask_state[0] = state_val;
+                output_mask_data[0] = data_val;
+                if (LFSR_FEED_FORWARD) begin
+                    // only shift in new input data
+                    state_val = '0;
+                    data_val = data_mask;
+                end
+                lfsr_mask_state[0] = state_val;
+                lfsr_mask_data[0] = data_val;
+
+                // add XOR inputs at correct indicies
+                for (integer j = 1; j < LFSR_W; j = j + 1) begin
+                    if (LFSR_POLY[j]) begin
+                        lfsr_mask_state[j] = lfsr_mask_state[j] ^ state_val;
+                        lfsr_mask_data[j] = lfsr_mask_data[j] ^ data_val;
+                    end
+                end
+            end
+        end
+
+        // Shift state alone after shifting data
+        if (STATE_SHIFT_POST > 0) begin
+            // forward shift
+            for (integer i = 0; i < STATE_SHIFT_POST; i = i + 1) begin
+                // determine shift in value
+                // current value in last FF, XOR with input data bit (MSB first)
+                state_val = lfsr_mask_state[LFSR_W-1];
+                data_val = lfsr_mask_data[LFSR_W-1];
+
+                // shift
+                for (integer j = LFSR_W-1; j > 0; j = j - 1) begin
+                    lfsr_mask_state[j] = lfsr_mask_state[j-1];
+                    lfsr_mask_data[j] = lfsr_mask_data[j-1];
+                end
+                if (LFSR_FEED_FORWARD) begin
+                    // only shift in new input data
+                    state_val = '0;
+                    data_val = '0;
+                end
+                lfsr_mask_state[0] = state_val;
+                lfsr_mask_data[0] = data_val;
+
+                // add XOR inputs at correct indicies
+                for (integer j = 1; j < LFSR_W; j = j + 1) begin
+                    if (LFSR_POLY[j]) begin
+                        lfsr_mask_state[j] = lfsr_mask_state[j] ^ state_val;
+                        lfsr_mask_data[j] = lfsr_mask_data[j] ^ data_val;
+                    end
+                end
+            end
+        end else if (STATE_SHIFT_POST < 0) begin
+            // reverse shift
+            for (integer i = 0; i < -STATE_SHIFT_POST; i = i + 1) begin
+                state_val = lfsr_mask_state[0];
+                data_val = lfsr_mask_data[0];
+
+                // add XOR inputs at correct indicies
+                for (integer j = 1; j < LFSR_W; j = j + 1) begin
+                    if (LFSR_POLY[j]) begin
+                        lfsr_mask_state[j] = lfsr_mask_state[j] ^ state_val;
+                        lfsr_mask_data[j] = lfsr_mask_data[j] ^ data_val;
+                    end
+                end
+
+                // shift
+                for (integer j = 0; j < LFSR_W-1; j = j + 1) begin
+                    lfsr_mask_state[j] = lfsr_mask_state[j+1];
+                    lfsr_mask_data[j] = lfsr_mask_data[j+1];
+                end
+                if (LFSR_FEED_FORWARD) begin
+                    // only shift in new input data
+                    state_val = '0;
+                    data_val = '0;
+                end
+                lfsr_mask_state[LFSR_W-1] = state_val;
+                lfsr_mask_data[LFSR_W-1] = data_val;
             end
         end
     end else begin
         // Fibonacci configuration
-        for (data_mask = {1'b1, {DATA_W-1{1'b0}}}; data_mask != 0; data_mask = data_mask >> 1) begin
-            // determine shift in value
-            // current value in last FF, XOR with input data bit (MSB first)
-            state_val = lfsr_mask_state[LFSR_W-1];
-            data_val = lfsr_mask_data[LFSR_W-1];
-            data_val = data_val ^ data_mask;
 
-            // add XOR inputs from correct indicies
-            for (integer j = 1; j < LFSR_W; j = j + 1) begin
-                if (LFSR_POLY[j]) begin
-                    state_val = lfsr_mask_state[j-1] ^ state_val;
-                    data_val = lfsr_mask_data[j-1] ^ data_val;
+        // Shift state alone before shifting data
+        if (STATE_SHIFT_PRE > 0) begin
+            // forward shift
+            for (integer i = 0; i < STATE_SHIFT_PRE; i = i + 1) begin
+                // determine shift in value
+                // current value in last FF, XOR with input data bit (MSB first)
+                state_val = lfsr_mask_state[LFSR_W-1];
+                data_val = lfsr_mask_data[LFSR_W-1];
+
+                // add XOR inputs from correct indicies
+                for (integer j = 1; j < LFSR_W; j = j + 1) begin
+                    if (LFSR_POLY[j]) begin
+                        state_val = lfsr_mask_state[j-1] ^ state_val;
+                        data_val = lfsr_mask_data[j-1] ^ data_val;
+                    end
+                end
+
+                // shift
+                for (integer j = LFSR_W-1; j > 0; j = j - 1) begin
+                    lfsr_mask_state[j] = lfsr_mask_state[j-1];
+                    lfsr_mask_data[j] = lfsr_mask_data[j-1];
+                end
+                if (LFSR_FEED_FORWARD) begin
+                    // only shift in new input data
+                    state_val = '0;
+                    data_val = '0;
+                end
+                lfsr_mask_state[0] = state_val;
+                lfsr_mask_data[0] = data_val;
+            end
+        end else if (STATE_SHIFT_PRE < 0) begin
+            // reverse shift
+            for (integer i = 0; i < -STATE_SHIFT_PRE; i = i + 1) begin
+                state_val = lfsr_mask_state[0];
+                data_val = lfsr_mask_data[0];
+
+                // shift
+                for (integer j = 0; j < LFSR_W-1; j = j + 1) begin
+                    lfsr_mask_state[j] = lfsr_mask_state[j+1];
+                    lfsr_mask_data[j] = lfsr_mask_data[j+1];
+                end
+                if (LFSR_FEED_FORWARD) begin
+                    // only shift in new input data
+                    state_val = '0;
+                    data_val = '0;
+                end
+                lfsr_mask_state[LFSR_W-1] = state_val;
+                lfsr_mask_data[LFSR_W-1] = data_val;
+
+                // add XOR inputs from correct indicies
+                for (integer j = 1; j < LFSR_W; j = j + 1) begin
+                    if (LFSR_POLY[j]) begin
+                        state_val = lfsr_mask_state[j-1] ^ state_val;
+                        data_val = lfsr_mask_data[j-1] ^ data_val;
+                    end
                 end
             end
+        end
 
-            // shift
-            for (integer j = LFSR_W-1; j > 0; j = j - 1) begin
-                lfsr_mask_state[j] = lfsr_mask_state[j-1];
-                lfsr_mask_data[j] = lfsr_mask_data[j-1];
+        // Shift data
+        if (DATA_IN_EN || DATA_OUT_EN) begin
+            for (data_mask = {1'b1, {DATA_W-1{1'b0}}}; data_mask != 0; data_mask = data_mask >> 1) begin
+                // determine shift in value
+                // current value in last FF, XOR with input data bit (MSB first)
+                state_val = lfsr_mask_state[LFSR_W-1];
+                data_val = lfsr_mask_data[LFSR_W-1];
+                data_val = data_val ^ data_mask;
+
+                // add XOR inputs from correct indicies
+                for (integer j = 1; j < LFSR_W; j = j + 1) begin
+                    if (LFSR_POLY[j]) begin
+                        state_val = lfsr_mask_state[j-1] ^ state_val;
+                        data_val = lfsr_mask_data[j-1] ^ data_val;
+                    end
+                end
+
+                // shift
+                for (integer j = LFSR_W-1; j > 0; j = j - 1) begin
+                    lfsr_mask_state[j] = lfsr_mask_state[j-1];
+                    lfsr_mask_data[j] = lfsr_mask_data[j-1];
+                end
+                for (integer j = DATA_W-1; j > 0; j = j - 1) begin
+                    output_mask_state[j] = output_mask_state[j-1];
+                    output_mask_data[j] = output_mask_data[j-1];
+                end
+                output_mask_state[0] = state_val;
+                output_mask_data[0] = data_val;
+                if (LFSR_FEED_FORWARD) begin
+                    // only shift in new input data
+                    state_val = '0;
+                    data_val = data_mask;
+                end
+                lfsr_mask_state[0] = state_val;
+                lfsr_mask_data[0] = data_val;
             end
-            for (integer j = DATA_W-1; j > 0; j = j - 1) begin
-                output_mask_state[j] = output_mask_state[j-1];
-                output_mask_data[j] = output_mask_data[j-1];
+        end
+
+        // Shift state alone after shifting data
+        if (STATE_SHIFT_POST > 0) begin
+            for (integer i = 0; i < STATE_SHIFT_POST; i = i + 1) begin
+                // determine shift in value
+                // current value in last FF, XOR with input data bit (MSB first)
+                state_val = lfsr_mask_state[LFSR_W-1];
+                data_val = lfsr_mask_data[LFSR_W-1];
+
+                // add XOR inputs from correct indicies
+                for (integer j = 1; j < LFSR_W; j = j + 1) begin
+                    if (LFSR_POLY[j]) begin
+                        state_val = lfsr_mask_state[j-1] ^ state_val;
+                        data_val = lfsr_mask_data[j-1] ^ data_val;
+                    end
+                end
+
+                // shift
+                for (integer j = LFSR_W-1; j > 0; j = j - 1) begin
+                    lfsr_mask_state[j] = lfsr_mask_state[j-1];
+                    lfsr_mask_data[j] = lfsr_mask_data[j-1];
+                end
+                if (LFSR_FEED_FORWARD) begin
+                    // only shift in new input data
+                    state_val = '0;
+                    data_val = '0;
+                end
+                lfsr_mask_state[0] = state_val;
+                lfsr_mask_data[0] = data_val;
             end
-            output_mask_state[0] = state_val;
-            output_mask_data[0] = data_val;
-            if (LFSR_FEED_FORWARD) begin
-                // only shift in new input data
-                state_val = '0;
-                data_val = data_mask;
+        end else if (STATE_SHIFT_POST < 0) begin
+            // reverse shift
+            for (integer i = 0; i < -STATE_SHIFT_POST; i = i + 1) begin
+                state_val = lfsr_mask_state[0];
+                data_val = lfsr_mask_data[0];
+
+                // shift
+                for (integer j = 0; j < LFSR_W-1; j = j + 1) begin
+                    lfsr_mask_state[j] = lfsr_mask_state[j+1];
+                    lfsr_mask_data[j] = lfsr_mask_data[j+1];
+                end
+                if (LFSR_FEED_FORWARD) begin
+                    // only shift in new input data
+                    state_val = '0;
+                    data_val = '0;
+                end
+                lfsr_mask_state[LFSR_W-1] = state_val;
+                lfsr_mask_data[LFSR_W-1] = data_val;
+
+                // add XOR inputs from correct indicies
+                for (integer j = 1; j < LFSR_W; j = j + 1) begin
+                    if (LFSR_POLY[j]) begin
+                        state_val = lfsr_mask_state[j-1] ^ state_val;
+                        data_val = lfsr_mask_data[j-1] ^ data_val;
+                    end
+                end
             end
-            lfsr_mask_state[0] = state_val;
-            lfsr_mask_data[0] = data_val;
         end
     end
 

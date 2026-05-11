@@ -37,6 +37,8 @@ export PARAM_REVERSE ?= "1'b1"
 export PARAM_DATA_W ?= 8
 export PARAM_DATA_IN_EN ?= "1'b1"
 export PARAM_DATA_OUT_EN ?= "1'b1"
+export PARAM_STATE_SHIFT_PRE ?= 0
+export PARAM_STATE_SHIFT_POST ?= 0
 
 ifeq ($(SIM), icarus)
 	PLUSARGS += -fst

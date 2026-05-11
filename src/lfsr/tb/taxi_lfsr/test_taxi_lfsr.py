@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: CERN-OHL-S-2.0
 """
 
-Copyright (c) 2023-2025 FPGA Ninja, LLC
+Copyright (c) 2023-2026 FPGA Ninja, LLC
 
 Authors:
 - Alex Forencich
@@ -37,8 +37,40 @@ def chunks(lst, n, padvalue=None):
     return itertools.zip_longest(*[iter(lst)]*n, fillvalue=padvalue)
 
 
-def crc32(data):
-    return zlib.crc32(data) & 0xffffffff
+def crc32(data, crc=0xffffffff, poly=0xedb88320):
+    # return zlib.crc32(data) & 0xffffffff
+    for d in data:
+        crc = crc ^ d
+        for bit in range(0, 8):
+            if crc & 1:
+                crc = (crc >> 1) ^ poly
+            else:
+                crc = crc >> 1
+    return ~crc & 0xffffffff
+
+
+def crc32_shift(crc, count, poly=0xedb88320):
+    crc = ~crc & 0xffffffff
+
+    if count > 0:
+        # shift forwards
+        for i in range(count):
+            if crc & 1:
+                crc = (crc >> 1) ^ poly
+            else:
+                crc = crc >> 1
+
+    elif count < 0:
+        # shift backwards
+        for i in range(-count):
+            if crc & 0x80000000:
+                crc ^= poly
+                crc = (crc << 1) | 1
+            else:
+                crc = crc << 1
+            crc = crc & 0xffffffff
+
+    return ~crc & 0xffffffff
 
 
 def crc32c(data, crc=0xffffffff, poly=0x82f63b78):
@@ -149,12 +181,65 @@ async def run_test_prbs(dut, ref_prbs):
         await Timer(10, 'ns')
 
 
+async def run_test_shift_crc(dut):
+
+    data_width = len(dut.data_in)
+    byte_lanes = data_width // 8
+
+    state_width = len(dut.state_in)
+    state_mask = 2**state_width-1
+
+    shift = int(dut.STATE_SHIFT_PRE.value)
+    if shift > 0 and shift & 0x80000000:
+        shift -= 0x100000000
+
+    tb = TB(dut)
+
+    await Timer(10, 'ns')
+
+    val = 0x12345678
+
+    dut.state_in.value = ~val & state_mask
+    dut.data_in.value = 0
+    await Timer(10, 'ns')
+
+    crc = ~int(dut.state_out.value) & state_mask
+    ref = crc32_shift(val, shift)
+
+    tb.log.info("Shifted CRC: 0x%x (ref: 0x%x)", crc, ref)
+
+    assert crc == ref
+
+    await Timer(10, 'ns')
+
+    for k in range(10):
+
+        val = crc32(bytearray(k))
+
+        dut.state_in.value = ~val & state_mask
+        dut.data_in.value = 0
+        await Timer(10, 'ns')
+
+        crc = ~int(dut.state_out.value) & state_mask
+        ref = crc32_shift(val, shift)
+
+        tb.log.info("Shifted CRC: 0x%x (ref: 0x%x)", crc, ref)
+
+        assert crc == ref
+
+        await Timer(10, 'ns')
+
+
 if getattr(cocotb, 'top', None) is not None:
 
     if cocotb.top.LFSR_POLY.value == 0x4c11db7:
-        factory = TestFactory(run_test_crc)
-        factory.add_option("ref_crc", [crc32])
-        factory.generate_tests()
+        if cocotb.top.STATE_SHIFT_PRE.value == 0:
+            factory = TestFactory(run_test_crc)
+            factory.add_option("ref_crc", [crc32])
+            factory.generate_tests()
+        else:
+            factory = TestFactory(run_test_shift_crc)
+            factory.generate_tests()
 
     if cocotb.top.LFSR_POLY.value == 0x1edc6f41:
         factory = TestFactory(run_test_crc)
@@ -191,17 +276,19 @@ def process_f_files(files):
     return list(lst.values())
 
 
-@pytest.mark.parametrize(("lfsr_w", "lfsr_poly", "lfsr_galois", "reverse", "data_w"), [
-            (32, "32'h4c11db7", 1, 1, 8),
-            (32, "32'h4c11db7", 1, 1, 64),
-            (32, "32'h1edc6f41", 1, 1, 8),
-            (32, "32'h1edc6f41", 1, 1, 64),
-            (9,  "9'h021", 0, 0, 8),
-            (9,  "9'h021", 0, 0, 64),
-            (31, "31'h10000001", 0, 0, 8),
-            (31, "31'h10000001", 0, 0, 64),
+@pytest.mark.parametrize(("lfsr_w", "lfsr_poly", "lfsr_galois", "reverse", "data_w", "data_shift", "pre_shift"), [
+            (32, "32'h4c11db7", 1, 1, 8, 1, 0),
+            (32, "32'h4c11db7", 1, 1, 64, 1, 0),
+            (32, "32'h4c11db7", 1, 1, 64, 0, 8),
+            (32, "32'h4c11db7", 1, 1, 64, 0, -8),
+            (32, "32'h1edc6f41", 1, 1, 8, 1, 0),
+            (32, "32'h1edc6f41", 1, 1, 64, 1, 0),
+            (9,  "9'h021", 0, 0, 8, 1, 0),
+            (9,  "9'h021", 0, 0, 64, 1, 0),
+            (31, "31'h10000001", 0, 0, 8, 1, 0),
+            (31, "31'h10000001", 0, 0, 64, 1, 0),
         ])
-def test_taxi_lfsr(request, lfsr_w, lfsr_poly, lfsr_galois, reverse, data_w):
+def test_taxi_lfsr(request, lfsr_w, lfsr_poly, lfsr_galois, reverse, data_w, data_shift, pre_shift):
     dut = "taxi_lfsr"
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -220,8 +307,10 @@ def test_taxi_lfsr(request, lfsr_w, lfsr_poly, lfsr_galois, reverse, data_w):
     parameters['LFSR_FEED_FORWARD'] = "1'b0"
     parameters['REVERSE'] = f"1'b{reverse}"
     parameters['DATA_W'] = data_w
-    parameters['DATA_IN_EN'] = "1'b1"
-    parameters['DATA_OUT_EN'] = "1'b1"
+    parameters['DATA_IN_EN'] = f"1'b{data_shift}"
+    parameters['DATA_OUT_EN'] = f"1'b{data_shift}"
+    parameters['STATE_SHIFT_PRE'] = pre_shift
+    parameters['STATE_SHIFT_POST'] = 0
 
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
 

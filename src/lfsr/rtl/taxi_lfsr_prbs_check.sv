@@ -167,7 +167,9 @@ taxi_lfsr #(
     .REVERSE(REVERSE),
     .DATA_W(DATA_W),
     .DATA_IN_EN(1'b1),
-    .DATA_OUT_EN(1'b1)
+    .DATA_OUT_EN(1'b1),
+    .STATE_SHIFT_PRE(0),
+    .STATE_SHIFT_POST(0)
 )
 lfsr_inst (
     .data_in(INVERT ? ~data_in : data_in),

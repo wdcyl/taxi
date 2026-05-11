@@ -131,7 +131,7 @@ DATA_W
 
 Specify width of input data bus.  The module will perform one shift per input data bit,
 so if the input data bus is not required tie data_in to zero and set DATA_W to the
-required number of shifts per clock cycle.  
+required number of shifts per clock cycle.
 
 Settings for common LFSR/CRC implementations:
 
@@ -157,7 +157,9 @@ taxi_lfsr #(
     .REVERSE(REVERSE),
     .DATA_W(DATA_W),
     .DATA_IN_EN(1'b1),
-    .DATA_OUT_EN(1'b0)
+    .DATA_OUT_EN(1'b0),
+    .STATE_SHIFT_PRE(0),
+    .STATE_SHIFT_POST(0)
 )
 lfsr_inst (
     .data_in(data_in),
