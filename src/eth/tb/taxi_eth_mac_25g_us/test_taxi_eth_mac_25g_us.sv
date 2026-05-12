@@ -199,8 +199,8 @@ logic [7:0] stat_rx_pfc_xon[CNT];
 logic [7:0] stat_rx_pfc_xoff[CNT];
 logic [7:0] stat_rx_pfc_paused[CNT];
 
-logic cfg_tx_pad_en;
-logic [7:0] cfg_tx_min_pkt_len;
+logic cfg_tx_pad_en[CNT];
+logic [7:0] cfg_tx_min_pkt_len[CNT];
 logic [15:0] cfg_tx_max_pkt_len[CNT];
 logic [7:0] cfg_tx_ifg[CNT];
 logic cfg_tx_enable[CNT];
