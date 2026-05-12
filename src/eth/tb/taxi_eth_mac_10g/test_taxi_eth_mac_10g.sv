@@ -22,9 +22,7 @@ module test_taxi_eth_mac_10g #
     parameter logic TX_GBX_IF_EN = 1'b0,
     parameter logic RX_GBX_IF_EN = TX_GBX_IF_EN,
     parameter GBX_CNT = 1,
-    parameter logic PADDING_EN = 1'b1,
     parameter logic DIC_EN = 1'b1,
-    parameter MIN_FRAME_LEN = 64,
     parameter logic PTP_TS_EN = 1'b0,
     parameter logic PTP_TD_EN = PTP_TS_EN,
     parameter logic PTP_TS_FMT_TOD = 1'b1,
@@ -109,6 +107,7 @@ logic stat_tx_pkt_bcast;
 logic stat_tx_pkt_vlan;
 logic stat_tx_pkt_good;
 logic stat_tx_pkt_bad;
+logic stat_tx_pad_frame;
 logic stat_tx_err_oversize;
 logic stat_tx_err_user;
 logic stat_tx_err_underflow;
@@ -148,6 +147,8 @@ logic [7:0] stat_rx_pfc_xon;
 logic [7:0] stat_rx_pfc_xoff;
 logic [7:0] stat_rx_pfc_paused;
 
+logic cfg_tx_pad_en;
+logic [7:0] cfg_tx_min_pkt_len;
 logic [15:0] cfg_tx_max_pkt_len;
 logic [7:0] cfg_tx_ifg;
 logic cfg_tx_enable;
@@ -191,9 +192,7 @@ taxi_eth_mac_10g #(
     .TX_GBX_IF_EN(TX_GBX_IF_EN),
     .RX_GBX_IF_EN(RX_GBX_IF_EN),
     .GBX_CNT(GBX_CNT),
-    .PADDING_EN(PADDING_EN),
     .DIC_EN(DIC_EN),
-    .MIN_FRAME_LEN(MIN_FRAME_LEN),
     .PTP_TS_EN(PTP_TS_EN),
     .PTP_TD_EN(PTP_TD_EN),
     .PTP_TS_FMT_TOD(PTP_TS_FMT_TOD),
@@ -299,6 +298,7 @@ uut (
     .stat_tx_pkt_vlan(stat_tx_pkt_vlan),
     .stat_tx_pkt_good(stat_tx_pkt_good),
     .stat_tx_pkt_bad(stat_tx_pkt_bad),
+    .stat_tx_pad_frame(stat_tx_pad_frame),
     .stat_tx_err_oversize(stat_tx_err_oversize),
     .stat_tx_err_user(stat_tx_err_user),
     .stat_tx_err_underflow(stat_tx_err_underflow),
@@ -341,6 +341,8 @@ uut (
     /*
      * Configuration
      */
+    .cfg_tx_pad_en(cfg_tx_pad_en),
+    .cfg_tx_min_pkt_len(cfg_tx_min_pkt_len),
     .cfg_tx_max_pkt_len(cfg_tx_max_pkt_len),
     .cfg_tx_ifg(cfg_tx_ifg),
     .cfg_tx_enable(cfg_tx_enable),

@@ -20,8 +20,6 @@ module test_taxi_eth_mac_1g_fifo #
     /* verilator lint_off WIDTHTRUNC */
     parameter DATA_W = 8,
     parameter AXIS_DATA_W = 8,
-    parameter logic PADDING_EN = 1'b1,
-    parameter MIN_FRAME_LEN = 64,
     parameter TX_TAG_W = 16,
     parameter logic STAT_EN = 1'b0,
     parameter STAT_TX_LEVEL = 1,
@@ -87,6 +85,8 @@ logic rx_fifo_overflow;
 logic rx_fifo_bad_frame;
 logic rx_fifo_good_frame;
 
+logic cfg_tx_pad_en;
+logic [7:0] cfg_tx_min_pkt_len;
 logic [15:0] cfg_tx_max_pkt_len;
 logic [7:0] cfg_tx_ifg;
 logic cfg_tx_enable;
@@ -95,8 +95,6 @@ logic cfg_rx_enable;
 
 taxi_eth_mac_1g_fifo #(
     .DATA_W(DATA_W),
-    .PADDING_EN(PADDING_EN),
-    .MIN_FRAME_LEN(MIN_FRAME_LEN),
     .STAT_EN(STAT_EN),
     .STAT_TX_LEVEL(STAT_TX_LEVEL),
     .STAT_RX_LEVEL(STAT_RX_LEVEL),
@@ -178,6 +176,8 @@ uut (
     /*
      * Configuration
      */
+    .cfg_tx_pad_en(cfg_tx_pad_en),
+    .cfg_tx_min_pkt_len(cfg_tx_min_pkt_len),
     .cfg_tx_max_pkt_len(cfg_tx_max_pkt_len),
     .cfg_tx_ifg(cfg_tx_ifg),
     .cfg_tx_enable(cfg_tx_enable),

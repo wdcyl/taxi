@@ -20,9 +20,7 @@ module taxi_eth_mac_phy_10g_tx #
     parameter DATA_W = 64,
     parameter HDR_W = (DATA_W/32),
     parameter logic GBX_IF_EN = 1'b0,
-    parameter logic PADDING_EN = 1'b1,
     parameter logic DIC_EN = 1'b1,
-    parameter MIN_FRAME_LEN = 64,
     parameter logic PTP_TS_EN = 1'b0,
     parameter logic PTP_TS_FMT_TOD = 1'b1,
     parameter PTP_TS_W = PTP_TS_FMT_TOD ? 96 : 64,
@@ -70,6 +68,7 @@ module taxi_eth_mac_phy_10g_tx #
     output wire logic                 stat_tx_pkt_vlan,
     output wire logic                 stat_tx_pkt_good,
     output wire logic                 stat_tx_pkt_bad,
+    output wire logic                 stat_tx_pad_frame,
     output wire logic                 stat_tx_err_oversize,
     output wire logic                 stat_tx_err_user,
     output wire logic                 stat_tx_err_underflow,
@@ -77,11 +76,16 @@ module taxi_eth_mac_phy_10g_tx #
     /*
      * Configuration
      */
-    input  wire logic [15:0]          cfg_tx_max_pkt_len = 16'd1518,
+    input  wire logic                 cfg_tx_pad_en = 1'b1,
+    input  wire logic [7:0]           cfg_tx_min_pkt_len = 8'd60-1,
+    input  wire logic [15:0]          cfg_tx_max_pkt_len = 16'd1518-1,
     input  wire logic [7:0]           cfg_tx_ifg = 8'd12,
     input  wire logic                 cfg_tx_enable,
     input  wire logic                 cfg_tx_prbs31_enable
 );
+
+localparam TX_USER_W = s_axis_tx.USER_W;
+localparam TX_TAG_W = s_axis_tx.ID_W;
 
 wire [DATA_W-1:0] encoded_tx_data;
 wire              encoded_tx_data_valid;
@@ -92,6 +96,43 @@ wire tx_gbx_req_sync;
 wire tx_gbx_req_stall;
 wire tx_gbx_sync;
 
+taxi_axis_if #(.DATA_W(DATA_W), .USER_EN(1), .USER_W(TX_USER_W), .ID_EN(1), .ID_W(TX_TAG_W)) axis_tx_pad();
+
+taxi_axis_pad #(
+    .ID_PAD_REG_EN(1'b0),
+    .DEST_PAD_REG_EN(1'b0),
+    .USER_PAD_REG_EN(1'b1),
+    .MIN_LEN_W(8),
+    .UNDERFLOW_DROP_EN(1'b1)
+)
+tx_pad_inst (
+    .clk(clk),
+    .rst(rst),
+
+    /*
+     * AXI4-Stream input (sink)
+     */
+    .s_axis(s_axis_tx),
+
+    /*
+     * AXI4-Stream output (source)
+     */
+    .m_axis(axis_tx_pad),
+
+    /*
+     * Configuration
+     */
+    .cfg_pad_en(cfg_tx_pad_en),
+    .cfg_min_pkt_len(cfg_tx_min_pkt_len),
+
+    /*
+     * Status
+     */
+    .stat_pad_frame(stat_tx_pad_frame),
+    .stat_err_user(),
+    .stat_err_underflow(stat_tx_err_underflow)
+);
+
 if (DATA_W == 64) begin
 
     taxi_axis_baser_tx_64 #(
@@ -99,9 +140,8 @@ if (DATA_W == 64) begin
         .HDR_W(HDR_W),
         .GBX_IF_EN(GBX_IF_EN),
         .GBX_CNT(1),
-        .PADDING_EN(PADDING_EN),
+        .PADDING_EN(1'b0),
         .DIC_EN(DIC_EN),
-        .MIN_FRAME_LEN(MIN_FRAME_LEN),
         .PTP_TS_EN(PTP_TS_EN),
         .PTP_TS_FMT_TOD(PTP_TS_FMT_TOD),
         .PTP_TS_W(PTP_TS_W),
@@ -114,7 +154,7 @@ if (DATA_W == 64) begin
         /*
          * Transmit interface (AXI stream)
          */
-        .s_axis_tx(s_axis_tx),
+        .s_axis_tx(axis_tx_pad),
         .m_axis_tx_cpl(m_axis_tx_cpl),
 
         /*
@@ -154,7 +194,7 @@ if (DATA_W == 64) begin
         .stat_tx_pkt_bad(stat_tx_pkt_bad),
         .stat_tx_err_oversize(stat_tx_err_oversize),
         .stat_tx_err_user(stat_tx_err_user),
-        .stat_tx_err_underflow(stat_tx_err_underflow)
+        .stat_tx_err_underflow()
     );
 
 end else begin
@@ -164,9 +204,8 @@ end else begin
         .HDR_W(HDR_W),
         .GBX_IF_EN(GBX_IF_EN),
         .GBX_CNT(1),
-        .PADDING_EN(PADDING_EN),
+        .PADDING_EN(1'b0),
         .DIC_EN(DIC_EN),
-        .MIN_FRAME_LEN(MIN_FRAME_LEN),
         .PTP_TS_EN(PTP_TS_EN),
         .PTP_TS_W(PTP_TS_W),
         .TX_CPL_CTRL_IN_TUSER(TX_CPL_CTRL_IN_TUSER)
@@ -178,7 +217,7 @@ end else begin
         /*
          * Transmit interface (AXI stream)
          */
-        .s_axis_tx(s_axis_tx),
+        .s_axis_tx(axis_tx_pad),
         .m_axis_tx_cpl(m_axis_tx_cpl),
 
         /*
@@ -218,7 +257,7 @@ end else begin
         .stat_tx_pkt_bad(stat_tx_pkt_bad),
         .stat_tx_err_oversize(stat_tx_err_oversize),
         .stat_tx_err_user(stat_tx_err_user),
-        .stat_tx_err_underflow(stat_tx_err_underflow)
+        .stat_tx_err_underflow()
     );
 
     assign tx_start_packet[1] = 1'b0;

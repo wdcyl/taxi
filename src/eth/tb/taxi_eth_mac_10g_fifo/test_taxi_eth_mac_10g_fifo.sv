@@ -23,9 +23,7 @@ module test_taxi_eth_mac_10g_fifo #
     parameter logic RX_GBX_IF_EN = TX_GBX_IF_EN,
     parameter GBX_CNT = 1,
     parameter AXIS_DATA_W = 8,
-    parameter logic PADDING_EN = 1'b1,
     parameter logic DIC_EN = 1'b1,
-    parameter MIN_FRAME_LEN = 64,
     parameter logic PTP_TS_EN = 1'b0,
     parameter logic PTP_TD_EN = PTP_TS_EN,
     parameter logic PTP_TS_FMT_TOD = 1'b1,
@@ -108,6 +106,8 @@ logic rx_fifo_overflow;
 logic rx_fifo_bad_frame;
 logic rx_fifo_good_frame;
 
+logic cfg_tx_pad_en;
+logic [7:0] cfg_tx_min_pkt_len;
 logic [15:0] cfg_tx_max_pkt_len;
 logic [7:0] cfg_tx_ifg;
 logic cfg_tx_enable;
@@ -120,9 +120,7 @@ taxi_eth_mac_10g_fifo #(
     .TX_GBX_IF_EN(TX_GBX_IF_EN),
     .RX_GBX_IF_EN(RX_GBX_IF_EN),
     .GBX_CNT(GBX_CNT),
-    .PADDING_EN(PADDING_EN),
     .DIC_EN(DIC_EN),
-    .MIN_FRAME_LEN(MIN_FRAME_LEN),
     .PTP_TS_EN(PTP_TS_EN),
     .PTP_TD_EN(PTP_TD_EN),
     .PTP_TS_FMT_TOD(PTP_TS_FMT_TOD),
@@ -220,6 +218,8 @@ uut (
     /*
      * Configuration
      */
+    .cfg_tx_pad_en(cfg_tx_pad_en),
+    .cfg_tx_min_pkt_len(cfg_tx_min_pkt_len),
     .cfg_tx_max_pkt_len(cfg_tx_max_pkt_len),
     .cfg_tx_ifg(cfg_tx_ifg),
     .cfg_tx_enable(cfg_tx_enable),

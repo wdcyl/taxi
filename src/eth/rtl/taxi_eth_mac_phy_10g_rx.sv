@@ -82,7 +82,7 @@ module taxi_eth_mac_phy_10g_rx #
     /*
      * Configuration
      */
-    input  wire logic [15:0]          cfg_rx_max_pkt_len = 16'd1518,
+    input  wire logic [15:0]          cfg_rx_max_pkt_len = 16'd1518-1,
     input  wire logic                 cfg_rx_enable,
     input  wire logic                 cfg_rx_prbs31_enable
 );

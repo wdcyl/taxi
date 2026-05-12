@@ -79,6 +79,8 @@ class TB:
 
         dut.stat_rx_fifo_drop.setimmediatevalue(0)
 
+        dut.cfg_tx_pad_en.setimmediatevalue(0)
+        dut.cfg_tx_min_pkt_len.setimmediatevalue(0)
         dut.cfg_tx_max_pkt_len.setimmediatevalue(0)
         dut.cfg_tx_ifg.setimmediatevalue(0)
         dut.cfg_tx_enable.setimmediatevalue(0)
@@ -175,9 +177,11 @@ async def run_test_rx(dut, payload_lengths=None, payload_data=None, ifg=12, enab
     tb = TB(dut)
 
     tb.gmii_source.ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len.value = 9218
+    tb.dut.cfg_tx_pad_en.value = 1
+    tb.dut.cfg_tx_min_pkt_len.value = 60-1
+    tb.dut.cfg_tx_max_pkt_len.value = 9218-1
     tb.dut.cfg_tx_ifg.value = ifg
-    tb.dut.cfg_rx_max_pkt_len.value = 9218
+    tb.dut.cfg_rx_max_pkt_len.value = 9218-1
     tb.dut.cfg_rx_enable.value = 1
     tb.dut.rx_mii_select.value = mii_sel
     tb.dut.tx_mii_select.value = mii_sel
@@ -224,10 +228,12 @@ async def run_test_tx(dut, payload_lengths=None, payload_data=None, ifg=12, enab
     tb = TB(dut)
 
     tb.gmii_source.ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len.value = 9218
+    tb.dut.cfg_tx_pad_en.value = 1
+    tb.dut.cfg_tx_min_pkt_len.value = 60-1
+    tb.dut.cfg_tx_max_pkt_len.value = 9218-1
     tb.dut.cfg_tx_ifg.value = ifg
     tb.dut.cfg_tx_enable.value = 1
-    tb.dut.cfg_rx_max_pkt_len.value = 9218
+    tb.dut.cfg_rx_max_pkt_len.value = 9218-1
     tb.dut.rx_mii_select.value = mii_sel
     tb.dut.tx_mii_select.value = mii_sel
 
@@ -270,10 +276,12 @@ async def run_test_tx_underrun(dut, ifg=12, enable_gen=None, mii_sel=False):
     tb = TB(dut)
 
     tb.gmii_source.ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len.value = 9218
+    tb.dut.cfg_tx_pad_en.value = 1
+    tb.dut.cfg_tx_min_pkt_len.value = 60-1
+    tb.dut.cfg_tx_max_pkt_len.value = 9218-1
     tb.dut.cfg_tx_ifg.value = ifg
     tb.dut.cfg_tx_enable.value = 1
-    tb.dut.cfg_rx_max_pkt_len.value = 9218
+    tb.dut.cfg_rx_max_pkt_len.value = 9218-1
     tb.dut.rx_mii_select.value = mii_sel
     tb.dut.tx_mii_select.value = mii_sel
 
@@ -326,10 +334,12 @@ async def run_test_tx_error(dut, ifg=12, enable_gen=None, mii_sel=False):
     tb = TB(dut)
 
     tb.gmii_source.ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len.value = 9218
+    tb.dut.cfg_tx_pad_en.value = 1
+    tb.dut.cfg_tx_min_pkt_len.value = 60-1
+    tb.dut.cfg_tx_max_pkt_len.value = 9218-1
     tb.dut.cfg_tx_ifg.value = ifg
     tb.dut.cfg_tx_enable.value = 1
-    tb.dut.cfg_rx_max_pkt_len.value = 9218
+    tb.dut.cfg_rx_max_pkt_len.value = 9218-1
     tb.dut.rx_mii_select.value = mii_sel
     tb.dut.tx_mii_select.value = mii_sel
 
@@ -368,9 +378,11 @@ async def run_test_rx_oversize(dut, ifg=12, enable_gen=None, mii_sel=False):
     tb = TB(dut)
 
     tb.gmii_source.ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len.value = 1518
+    tb.dut.cfg_tx_pad_en.value = 1
+    tb.dut.cfg_tx_min_pkt_len.value = 60-1
+    tb.dut.cfg_tx_max_pkt_len.value = 1518-1
     tb.dut.cfg_tx_ifg.value = ifg
-    tb.dut.cfg_rx_max_pkt_len.value = 1518
+    tb.dut.cfg_rx_max_pkt_len.value = 1518-1
     tb.dut.cfg_rx_enable.value = 1
     tb.dut.rx_mii_select.value = mii_sel
     tb.dut.tx_mii_select.value = mii_sel
@@ -411,10 +423,12 @@ async def run_test_tx_oversize(dut, ifg=12, enable_gen=None, mii_sel=False):
     tb = TB(dut)
 
     tb.gmii_source.ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len.value = 1518
+    tb.dut.cfg_tx_pad_en.value = 1
+    tb.dut.cfg_tx_min_pkt_len.value = 60-1
+    tb.dut.cfg_tx_max_pkt_len.value = 1518-1
     tb.dut.cfg_tx_ifg.value = ifg
     tb.dut.cfg_tx_enable.value = 1
-    tb.dut.cfg_rx_max_pkt_len.value = 1518
+    tb.dut.cfg_rx_max_pkt_len.value = 1518-1
     tb.dut.rx_mii_select.value = mii_sel
     tb.dut.tx_mii_select.value = mii_sel
 
@@ -453,10 +467,12 @@ async def run_test_lfc(dut, ifg=12, enable_gen=None, mii_sel=True):
     tb = TB(dut)
 
     tb.gmii_source.ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len.value = 9218
+    tb.dut.cfg_tx_pad_en.value = 1
+    tb.dut.cfg_tx_min_pkt_len.value = 60-1
+    tb.dut.cfg_tx_max_pkt_len.value = 9218-1
     tb.dut.cfg_tx_ifg.value = ifg
     tb.dut.cfg_tx_enable.value = 1
-    tb.dut.cfg_rx_max_pkt_len.value = 9218
+    tb.dut.cfg_rx_max_pkt_len.value = 9218-1
     tb.dut.cfg_rx_enable.value = 1
     tb.dut.rx_mii_select.value = mii_sel
     tb.dut.tx_mii_select.value = mii_sel
@@ -606,10 +622,12 @@ async def run_test_pfc(dut, ifg=12, enable_gen=None, mii_sel=True):
     tb = TB(dut)
 
     tb.gmii_source.ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len.value = 9218
+    tb.dut.cfg_tx_pad_en.value = 1
+    tb.dut.cfg_tx_min_pkt_len.value = 60-1
+    tb.dut.cfg_tx_max_pkt_len.value = 9218-1
     tb.dut.cfg_tx_ifg.value = ifg
     tb.dut.cfg_tx_enable.value = 1
-    tb.dut.cfg_rx_max_pkt_len.value = 9218
+    tb.dut.cfg_rx_max_pkt_len.value = 9218-1
     tb.dut.cfg_rx_enable.value = 1
     tb.dut.rx_mii_select.value = mii_sel
     tb.dut.tx_mii_select.value = mii_sel
@@ -834,8 +852,6 @@ def test_taxi_eth_mac_1g(request, pfc_en):
     parameters = {}
 
     parameters['DATA_W'] = 8
-    parameters['PADDING_EN'] = 1
-    parameters['MIN_FRAME_LEN'] = 64
     parameters['PTP_TS_EN'] = 1
     parameters['PTP_TS_W'] = 96
     parameters['TX_TAG_W'] = 16

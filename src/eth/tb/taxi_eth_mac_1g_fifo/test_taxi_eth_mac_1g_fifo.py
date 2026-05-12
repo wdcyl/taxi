@@ -52,6 +52,8 @@ class TB:
 
         self.stat_sink = AxiStreamSink(AxiStreamBus.from_entity(dut.m_axis_stat), dut.stat_clk, dut.stat_rst)
 
+        dut.cfg_tx_pad_en.setimmediatevalue(0)
+        dut.cfg_tx_min_pkt_len.setimmediatevalue(0)
         dut.cfg_tx_max_pkt_len.setimmediatevalue(0)
         dut.cfg_tx_ifg.setimmediatevalue(0)
         dut.cfg_tx_enable.setimmediatevalue(0)
@@ -128,7 +130,7 @@ async def run_test_rx(dut, payload_lengths=None, payload_data=None, ifg=12, enab
 
     tb.gmii_source.ifg = ifg
     tb.dut.cfg_tx_ifg.value = ifg
-    tb.dut.cfg_rx_max_pkt_len.value = 9218
+    tb.dut.cfg_rx_max_pkt_len.value = 9218-1
     tb.dut.cfg_rx_enable.value = 1
     tb.dut.rx_mii_select.value = mii_sel
     tb.dut.tx_mii_select.value = mii_sel
@@ -162,7 +164,9 @@ async def run_test_tx(dut, payload_lengths=None, payload_data=None, ifg=12, enab
     tb = TB(dut)
 
     tb.gmii_source.ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len.value = 9218
+    tb.dut.cfg_tx_pad_en.value = 1
+    tb.dut.cfg_tx_min_pkt_len.value = 60-1
+    tb.dut.cfg_tx_max_pkt_len.value = 9218-1
     tb.dut.cfg_tx_ifg.value = ifg
     tb.dut.cfg_tx_enable.value = 1
     tb.dut.rx_mii_select.value = mii_sel
@@ -254,8 +258,6 @@ def test_taxi_eth_mac_1g_fifo(request):
 
     parameters['DATA_W'] = 8
     parameters['AXIS_DATA_W'] = 8
-    parameters['PADDING_EN'] = 1
-    parameters['MIN_FRAME_LEN'] = 64
     parameters['TX_TAG_W'] = 16
     parameters['STAT_EN'] = 1
     parameters['STAT_TX_LEVEL'] = 2

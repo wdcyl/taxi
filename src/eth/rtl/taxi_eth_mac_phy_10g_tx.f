@@ -4,3 +4,4 @@ taxi_axis_baser_tx_32.sv
 taxi_axis_baser_tx_64.sv
 ../lib/taxi/src/lfsr/rtl/taxi_lfsr.sv
 ../lib/taxi/src/axis/rtl/taxi_axis_if.sv
+../lib/taxi/src/axis/rtl/taxi_axis_pad.sv

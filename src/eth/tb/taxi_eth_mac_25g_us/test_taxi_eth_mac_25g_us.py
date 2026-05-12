@@ -140,6 +140,8 @@ class TB:
 
         dut.stat_rx_fifo_drop.setimmediatevalue([0]*4)
 
+        dut.cfg_tx_pad_en.setimmediatevalue([0]*4)
+        dut.cfg_tx_min_pkt_len.setimmediatevalue([0]*4)
         dut.cfg_tx_max_pkt_len.setimmediatevalue([0]*4)
         dut.cfg_tx_ifg.setimmediatevalue([0]*4)
         dut.cfg_tx_enable.setimmediatevalue([0]*4)
@@ -237,7 +239,7 @@ async def run_test_rx(dut, port=0, payload_lengths=None, payload_data=None, ifg=
 
     tb.serdes_sources[port].ifg = ifg
     tb.dut.cfg_tx_ifg[port].value = ifg
-    tb.dut.cfg_rx_max_pkt_len[port].value = 9218
+    tb.dut.cfg_rx_max_pkt_len[port].value = 9218-1
 
     await tb.reset()
 
@@ -320,8 +322,10 @@ async def run_test_tx(dut, port=0, payload_lengths=None, payload_data=None, ifg=
     tb = TB(dut)
 
     tb.serdes_sources[port].ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len.value = [9218]*4
-    tb.dut.cfg_tx_ifg.value = [ifg]*4
+    tb.dut.cfg_tx_pad_en[port].value = 1
+    tb.dut.cfg_tx_min_pkt_len[port].value = 60-1
+    tb.dut.cfg_tx_max_pkt_len[port].value = 9218-1
+    tb.dut.cfg_tx_ifg[port].value = ifg
 
     await tb.reset()
 
@@ -400,7 +404,9 @@ async def run_test_tx_alignment(dut, port=0, payload_data=None, ifg=12):
     byte_width = tb.axis_sources[port].width // 8
 
     tb.serdes_sources[port].ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len[port].value = 9218
+    tb.dut.cfg_tx_pad_en[port].value = 1
+    tb.dut.cfg_tx_min_pkt_len[port].value = 60-1
+    tb.dut.cfg_tx_max_pkt_len[port].value = 9218-1
     tb.dut.cfg_tx_ifg[port].value = ifg
 
     await tb.reset()
@@ -506,7 +512,9 @@ async def run_test_tx_underrun(dut, port=0, ifg=12):
     tb = TB(dut)
 
     tb.serdes_sources[port].ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len[port].value = 9218
+    tb.dut.cfg_tx_pad_en[port].value = 1
+    tb.dut.cfg_tx_min_pkt_len[port].value = 60-1
+    tb.dut.cfg_tx_max_pkt_len[port].value = 9218-1
     tb.dut.cfg_tx_ifg[port].value = ifg
 
     await tb.reset()
@@ -561,7 +569,9 @@ async def run_test_tx_error(dut, port=0, ifg=12):
     tb = TB(dut)
 
     tb.serdes_sources[port].ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len[port].value = 9218
+    tb.dut.cfg_tx_pad_en[port].value = 1
+    tb.dut.cfg_tx_min_pkt_len[port].value = 60-1
+    tb.dut.cfg_tx_max_pkt_len[port].value = 9218-1
     tb.dut.cfg_tx_ifg[port].value = ifg
 
     await tb.reset()
@@ -651,9 +661,11 @@ async def run_test_lfc(dut, port=0, ifg=12):
     tb = TB(dut)
 
     tb.serdes_sources[port].ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len[port].value = 9218
+    tb.dut.cfg_tx_pad_en[port].value = 1
+    tb.dut.cfg_tx_min_pkt_len[port].value = 60-1
+    tb.dut.cfg_tx_max_pkt_len[port].value = 9218-1
     tb.dut.cfg_tx_ifg[port].value = ifg
-    tb.dut.cfg_rx_max_pkt_len[port].value = 9218
+    tb.dut.cfg_rx_max_pkt_len[port].value = 9218-1
 
     await tb.reset()
 
@@ -813,9 +825,11 @@ async def run_test_pfc(dut, port=0, ifg=12):
     tb = TB(dut)
 
     tb.serdes_sources[port].ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len[port].value = 9218
+    tb.dut.cfg_tx_pad_en[port].value = 1
+    tb.dut.cfg_tx_min_pkt_len[port].value = 60-1
+    tb.dut.cfg_tx_max_pkt_len[port].value = 9218-1
     tb.dut.cfg_tx_ifg[port].value = ifg
-    tb.dut.cfg_rx_max_pkt_len[port].value = 9218
+    tb.dut.cfg_rx_max_pkt_len[port].value = 9218-1
 
     await tb.reset()
 
@@ -1061,9 +1075,7 @@ def test_taxi_eth_mac_25g_us(request, data_w, combined_mac_pcs, low_latency, dic
     parameters['QPLL1_EXT_CTRL'] = 0
     parameters['COMBINED_MAC_PCS'] = combined_mac_pcs
     parameters['DATA_W'] = data_w
-    parameters['PADDING_EN'] = 1
     parameters['DIC_EN'] = dic_en
-    parameters['MIN_FRAME_LEN'] = 64
     parameters['PTP_TS_EN'] = 1
     parameters['PTP_TD_EN'] = parameters['PTP_TS_EN']
     parameters['PTP_TS_FMT_TOD'] = 1

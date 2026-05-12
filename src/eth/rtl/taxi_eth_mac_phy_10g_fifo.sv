@@ -138,10 +138,12 @@ module taxi_eth_mac_phy_10g_fifo #
     /*
      * Configuration
      */
-    input  wire logic [15:0]          cfg_tx_max_pkt_len = 16'd1518,
+    input  wire logic                 cfg_tx_pad_en = 1'b1,
+    input  wire logic [7:0]           cfg_tx_min_pkt_len = 8'd60-1,
+    input  wire logic [15:0]          cfg_tx_max_pkt_len = 16'd1518-1,
     input  wire logic [7:0]           cfg_tx_ifg = 8'd12,
     input  wire logic                 cfg_tx_enable = 1'b1,
-    input  wire logic [15:0]          cfg_rx_max_pkt_len = 16'd1518,
+    input  wire logic [15:0]          cfg_rx_max_pkt_len = 16'd1518-1,
     input  wire logic                 cfg_rx_enable = 1'b1,
     input  wire logic                 cfg_tx_prbs31_enable = 1'b0,
     input  wire logic                 cfg_rx_prbs31_enable = 1'b0
@@ -300,9 +302,7 @@ taxi_eth_mac_phy_10g #(
     .HDR_W(HDR_W),
     .TX_GBX_IF_EN(TX_GBX_IF_EN),
     .RX_GBX_IF_EN(RX_GBX_IF_EN),
-    .PADDING_EN(PADDING_EN),
     .DIC_EN(DIC_EN),
-    .MIN_FRAME_LEN(MIN_FRAME_LEN),
     .PTP_TS_EN(PTP_TS_EN),
     .PTP_TD_EN(PTP_TD_EN),
     .PTP_TS_FMT_TOD(PTP_TS_FMT_TOD),
@@ -418,6 +418,7 @@ eth_mac_phy_10g_inst (
     .stat_tx_pkt_vlan(),
     .stat_tx_pkt_good(),
     .stat_tx_pkt_bad(),
+    .stat_tx_pad_frame(),
     .stat_tx_err_oversize(),
     .stat_tx_err_user(),
     .stat_tx_err_underflow(tx_error_underflow_int),
@@ -464,6 +465,8 @@ eth_mac_phy_10g_inst (
     /*
      * Configuration
      */
+    .cfg_tx_pad_en(cfg_tx_pad_en),
+    .cfg_tx_min_pkt_len(cfg_tx_min_pkt_len),
     .cfg_tx_max_pkt_len(cfg_tx_max_pkt_len),
     .cfg_tx_ifg(cfg_tx_ifg),
     .cfg_tx_enable(cfg_tx_enable),

@@ -54,9 +54,7 @@ module taxi_eth_mac_25g_us #
     // MAC/PHY parameters
     parameter logic COMBINED_MAC_PCS = 1'b1,
     parameter DATA_W = 64,
-    parameter logic PADDING_EN = 1'b1,
     parameter logic DIC_EN = 1'b1,
-    parameter MIN_FRAME_LEN = 64,
     parameter logic PTP_TS_EN = 1'b0,
     parameter logic PTP_TD_EN = PTP_TS_EN,
     parameter logic PTP_TS_FMT_TOD = 1'b1,
@@ -195,6 +193,7 @@ module taxi_eth_mac_25g_us #
     output wire logic                 stat_tx_pkt_vlan[CNT],
     output wire logic                 stat_tx_pkt_good[CNT],
     output wire logic                 stat_tx_pkt_bad[CNT],
+    output wire logic                 stat_tx_pad_frame[CNT],
     output wire logic                 stat_tx_err_oversize[CNT],
     output wire logic                 stat_tx_err_user[CNT],
     output wire logic                 stat_tx_err_underflow[CNT],
@@ -241,10 +240,12 @@ module taxi_eth_mac_25g_us #
     /*
      * Configuration
      */
-    input  wire logic [15:0]          cfg_tx_max_pkt_len[CNT] = '{CNT{16'd1518}},
+    input  wire logic                 cfg_tx_pad_en[CNT] = '{CNT{1'b1}},
+    input  wire logic [7:0]           cfg_tx_min_pkt_len[CNT] = '{CNT{8'd60-1}},
+    input  wire logic [15:0]          cfg_tx_max_pkt_len[CNT] = '{CNT{16'd1518-1}},
     input  wire logic [7:0]           cfg_tx_ifg[CNT] = '{CNT{8'd12}},
     input  wire logic                 cfg_tx_enable[CNT] = '{CNT{1'b1}},
-    input  wire logic [15:0]          cfg_rx_max_pkt_len[CNT] = '{CNT{16'd1518}},
+    input  wire logic [15:0]          cfg_rx_max_pkt_len[CNT] = '{CNT{16'd1518-1}},
     input  wire logic                 cfg_rx_enable[CNT] = '{CNT{1'b1}},
     input  wire logic [7:0]           cfg_ifg[CNT] = '{CNT{8'd12}},
     input  wire logic                 cfg_tx_prbs31_enable[CNT] = '{CNT{1'b0}},
@@ -425,9 +426,7 @@ for (genvar n = 0; n < CNT; n = n + 1) begin : ch
         // MAC/PHY parameters
         .COMBINED_MAC_PCS(COMBINED_MAC_PCS),
         .DATA_W(DATA_W),
-        .PADDING_EN(PADDING_EN),
         .DIC_EN(DIC_EN),
-        .MIN_FRAME_LEN(MIN_FRAME_LEN),
         .PTP_TS_EN(PTP_TS_EN),
         .PTP_TD_EN(PTP_TD_EN),
         .PTP_TS_FMT_TOD(PTP_TS_FMT_TOD),
@@ -580,6 +579,7 @@ for (genvar n = 0; n < CNT; n = n + 1) begin : ch
         .stat_tx_pkt_vlan(stat_tx_pkt_vlan[n]),
         .stat_tx_pkt_good(stat_tx_pkt_good[n]),
         .stat_tx_pkt_bad(stat_tx_pkt_bad[n]),
+        .stat_tx_pad_frame(stat_tx_pad_frame[n]),
         .stat_tx_err_oversize(stat_tx_err_oversize[n]),
         .stat_tx_err_user(stat_tx_err_user[n]),
         .stat_tx_err_underflow(stat_tx_err_underflow[n]),
@@ -626,6 +626,8 @@ for (genvar n = 0; n < CNT; n = n + 1) begin : ch
         /*
          * Configuration
          */
+        .cfg_tx_pad_en(cfg_tx_pad_en[n]),
+        .cfg_tx_min_pkt_len(cfg_tx_min_pkt_len[n]),
         .cfg_tx_max_pkt_len(cfg_tx_max_pkt_len[n]),
         .cfg_tx_ifg(cfg_tx_ifg[n]),
         .cfg_tx_enable(cfg_tx_enable[n]),

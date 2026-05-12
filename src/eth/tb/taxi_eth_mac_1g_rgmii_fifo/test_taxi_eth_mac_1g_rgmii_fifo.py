@@ -43,6 +43,8 @@ class TB:
 
         self.stat_sink = AxiStreamSink(AxiStreamBus.from_entity(dut.m_axis_stat), dut.stat_clk, dut.stat_rst)
 
+        dut.cfg_tx_pad_en.setimmediatevalue(0)
+        dut.cfg_tx_min_pkt_len.setimmediatevalue(0)
         dut.cfg_tx_max_pkt_len.setimmediatevalue(0)
         dut.cfg_tx_ifg.setimmediatevalue(0)
         dut.cfg_tx_enable.setimmediatevalue(0)
@@ -90,7 +92,7 @@ async def run_test_rx(dut, payload_lengths=None, payload_data=None, ifg=12, spee
 
     tb.rgmii_phy.rx.ifg = ifg
     tb.dut.cfg_tx_ifg.value = ifg
-    tb.dut.cfg_rx_max_pkt_len.value = 9218
+    tb.dut.cfg_rx_max_pkt_len.value = 9218-1
     tb.dut.cfg_rx_enable.value = 1
 
     await tb.reset()
@@ -128,7 +130,9 @@ async def run_test_tx(dut, payload_lengths=None, payload_data=None, ifg=12, spee
     tb = TB(dut, speed)
 
     tb.rgmii_phy.rx.ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len.value = 9218
+    tb.dut.cfg_tx_pad_en.value = 1
+    tb.dut.cfg_tx_min_pkt_len.value = 60-1
+    tb.dut.cfg_tx_max_pkt_len.value = 9218-1
     tb.dut.cfg_tx_ifg.value = ifg
     tb.dut.cfg_tx_enable.value = 1
 
@@ -226,8 +230,6 @@ def test_taxi_eth_mac_1g_rgmii_fifo(request):
     parameters['FAMILY'] = "\"virtex7\""
     parameters['USE_CLK90'] = 1
     parameters['AXIS_DATA_W'] = 8
-    parameters['PADDING_EN'] = 1
-    parameters['MIN_FRAME_LEN'] = 64
     parameters['TX_TAG_W'] = 16
     parameters['STAT_EN'] = 1
     parameters['STAT_TX_LEVEL'] = 2

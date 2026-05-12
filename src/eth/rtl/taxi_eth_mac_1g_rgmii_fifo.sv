@@ -21,8 +21,6 @@ module taxi_eth_mac_1g_rgmii_fifo #
     parameter string VENDOR = "XILINX",
     parameter string FAMILY = "virtex7",
     parameter logic USE_CLK90 = 1'b1,
-    parameter logic PADDING_EN = 1'b1,
-    parameter MIN_FRAME_LEN = 64,
     parameter logic STAT_EN = 1'b0,
     parameter STAT_TX_LEVEL = 1,
     parameter STAT_RX_LEVEL = STAT_TX_LEVEL,
@@ -96,10 +94,12 @@ module taxi_eth_mac_1g_rgmii_fifo #
     /*
      * Configuration
      */
-    input  wire logic [15:0]          cfg_tx_max_pkt_len = 16'd1518,
+    input  wire logic                 cfg_tx_pad_en = 1'b1,
+    input  wire logic [7:0]           cfg_tx_min_pkt_len = 8'd60-1,
+    input  wire logic [15:0]          cfg_tx_max_pkt_len = 16'd1518-1,
     input  wire logic [7:0]           cfg_tx_ifg = 8'd12,
     input  wire logic                 cfg_tx_enable = 1'b1,
-    input  wire logic [15:0]          cfg_rx_max_pkt_len = 16'd1518,
+    input  wire logic [15:0]          cfg_rx_max_pkt_len = 16'd1518-1,
     input  wire logic                 cfg_rx_enable = 1'b1
 );
 
@@ -199,8 +199,6 @@ taxi_eth_mac_1g_rgmii #(
     .VENDOR(VENDOR),
     .FAMILY(FAMILY),
     .USE_CLK90(USE_CLK90),
-    .PADDING_EN(PADDING_EN),
-    .MIN_FRAME_LEN(MIN_FRAME_LEN),
     .PTP_TS_EN(1'b0),
     .PFC_EN(1'b0),
     .PAUSE_EN(1'b0),
@@ -293,6 +291,7 @@ eth_mac_1g_rgmii_inst (
     .stat_tx_pkt_vlan(),
     .stat_tx_pkt_good(),
     .stat_tx_pkt_bad(),
+    .stat_tx_pad_frame(),
     .stat_tx_err_oversize(),
     .stat_tx_err_user(),
     .stat_tx_err_underflow(tx_error_underflow_int),
@@ -336,6 +335,8 @@ eth_mac_1g_rgmii_inst (
     /*
      * Configuration
      */
+    .cfg_tx_pad_en(cfg_tx_pad_en),
+    .cfg_tx_min_pkt_len(cfg_tx_min_pkt_len),
     .cfg_tx_max_pkt_len(cfg_tx_max_pkt_len),
     .cfg_tx_ifg(cfg_tx_ifg),
     .cfg_tx_enable(cfg_tx_enable),

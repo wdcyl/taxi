@@ -18,8 +18,6 @@ Authors:
 module taxi_eth_mac_1g #
 (
     parameter DATA_W = 8,
-    parameter logic PADDING_EN = 1'b1,
-    parameter MIN_FRAME_LEN = 64,
     parameter logic PTP_TS_EN = 1'b0,
     parameter PTP_TS_W = 96,
     parameter logic PFC_EN = 1'b0,
@@ -117,6 +115,7 @@ module taxi_eth_mac_1g #
     output wire logic                 stat_tx_pkt_vlan,
     output wire logic                 stat_tx_pkt_good,
     output wire logic                 stat_tx_pkt_bad,
+    output wire logic                 stat_tx_pad_frame,
     output wire logic                 stat_tx_err_oversize,
     output wire logic                 stat_tx_err_user,
     output wire logic                 stat_tx_err_underflow,
@@ -159,10 +158,12 @@ module taxi_eth_mac_1g #
     /*
      * Configuration
      */
-    input  wire logic [15:0]          cfg_tx_max_pkt_len = 16'd1518,
+    input  wire logic                 cfg_tx_pad_en = 1'b1,
+    input  wire logic [7:0]           cfg_tx_min_pkt_len = 8'd60-1,
+    input  wire logic [15:0]          cfg_tx_max_pkt_len = 16'd1518-1,
     input  wire logic [7:0]           cfg_tx_ifg = 8'd12,
     input  wire logic                 cfg_tx_enable = 1'b1,
-    input  wire logic [15:0]          cfg_rx_max_pkt_len = 16'd1518,
+    input  wire logic [15:0]          cfg_rx_max_pkt_len = 16'd1518-1,
     input  wire logic                 cfg_rx_enable = 1'b1,
     input  wire logic [47:0]          cfg_mcf_rx_eth_dst_mcast = 48'h01_80_C2_00_00_01,
     input  wire logic                 cfg_mcf_rx_check_eth_dst_mcast = 1'b1,
@@ -205,7 +206,43 @@ localparam MAC_CTRL_EN = PAUSE_EN || PFC_EN;
 localparam TX_USER_W_INT = (MAC_CTRL_EN ? 1 : 0) + TX_USER_W;
 
 taxi_axis_if #(.DATA_W(DATA_W), .USER_EN(1), .USER_W(TX_USER_W_INT), .ID_EN(1), .ID_W(TX_TAG_W)) axis_tx_int();
+taxi_axis_if #(.DATA_W(DATA_W), .USER_EN(1), .USER_W(TX_USER_W_INT), .ID_EN(1), .ID_W(TX_TAG_W)) axis_tx_pad();
 taxi_axis_if #(.DATA_W(DATA_W), .USER_EN(1), .USER_W(RX_USER_W)) axis_rx_int();
+
+taxi_axis_pad #(
+    .ID_PAD_REG_EN(1'b0),
+    .DEST_PAD_REG_EN(1'b0),
+    .USER_PAD_REG_EN(1'b1),
+    .MIN_LEN_W(8),
+    .UNDERFLOW_DROP_EN(1'b1)
+)
+tx_pad_inst (
+    .clk(tx_clk),
+    .rst(tx_rst),
+
+    /*
+     * AXI4-Stream input (sink)
+     */
+    .s_axis(axis_tx_int),
+
+    /*
+     * AXI4-Stream output (source)
+     */
+    .m_axis(axis_tx_pad),
+
+    /*
+     * Configuration
+     */
+    .cfg_pad_en(cfg_tx_pad_en),
+    .cfg_min_pkt_len(cfg_tx_min_pkt_len),
+
+    /*
+     * Status
+     */
+    .stat_pad_frame(stat_tx_pad_frame),
+    .stat_err_user(),
+    .stat_err_underflow(stat_tx_err_underflow)
+);
 
 taxi_axis_gmii_rx #(
     .DATA_W(DATA_W),
@@ -268,8 +305,7 @@ axis_gmii_rx_inst (
 
 taxi_axis_gmii_tx #(
     .DATA_W(DATA_W),
-    .PADDING_EN(PADDING_EN),
-    .MIN_FRAME_LEN(MIN_FRAME_LEN),
+    .PADDING_EN(1'b0),
     .PTP_TS_EN(PTP_TS_EN),
     .PTP_TS_W(PTP_TS_W),
     .TX_CPL_CTRL_IN_TUSER(MAC_CTRL_EN)
@@ -281,7 +317,7 @@ axis_gmii_tx_inst (
     /*
      * Transmit interface (AXI stream)
      */
-    .s_axis_tx(axis_tx_int),
+    .s_axis_tx(axis_tx_pad),
     .m_axis_tx_cpl(m_axis_tx_cpl),
 
     /*
@@ -323,7 +359,7 @@ axis_gmii_tx_inst (
     .stat_tx_pkt_bad(stat_tx_pkt_bad),
     .stat_tx_err_oversize(stat_tx_err_oversize),
     .stat_tx_err_user(stat_tx_err_user),
-    .stat_tx_err_underflow(stat_tx_err_underflow)
+    .stat_tx_err_underflow()
 );
 
 if (STAT_EN) begin : stats

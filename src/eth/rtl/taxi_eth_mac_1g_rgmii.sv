@@ -21,8 +21,6 @@ module taxi_eth_mac_1g_rgmii #
     parameter string VENDOR = "XILINX",
     parameter string FAMILY = "virtex7",
     parameter logic USE_CLK90 = 1'b1,
-    parameter logic PADDING_EN = 1'b1,
-    parameter MIN_FRAME_LEN = 64,
     parameter logic PTP_TS_EN = 1'b0,
     parameter PTP_TS_W = 96,
     parameter logic PFC_EN = 1'b0,
@@ -115,6 +113,7 @@ module taxi_eth_mac_1g_rgmii #
     output wire logic                 stat_tx_pkt_vlan,
     output wire logic                 stat_tx_pkt_good,
     output wire logic                 stat_tx_pkt_bad,
+    output wire logic                 stat_tx_pad_frame,
     output wire logic                 stat_tx_err_oversize,
     output wire logic                 stat_tx_err_user,
     output wire logic                 stat_tx_err_underflow,
@@ -158,10 +157,12 @@ module taxi_eth_mac_1g_rgmii #
     /*
      * Configuration
      */
-    input  wire logic [15:0]          cfg_tx_max_pkt_len = 16'd1518,
+    input  wire logic                 cfg_tx_pad_en = 1'b1,
+    input  wire logic [7:0]           cfg_tx_min_pkt_len = 8'd60-1,
+    input  wire logic [15:0]          cfg_tx_max_pkt_len = 16'd1518-1,
     input  wire logic [7:0]           cfg_tx_ifg = 8'd12,
     input  wire logic                 cfg_tx_enable = 1'b1,
-    input  wire logic [15:0]          cfg_rx_max_pkt_len = 16'd1518,
+    input  wire logic [15:0]          cfg_rx_max_pkt_len = 16'd1518-1,
     input  wire logic                 cfg_rx_enable = 1'b1,
     input  wire logic [47:0]          cfg_mcf_rx_eth_dst_mcast = 48'h01_80_C2_00_00_01,
     input  wire logic                 cfg_mcf_rx_check_eth_dst_mcast = 1'b1,
@@ -269,8 +270,6 @@ rgmii_phy_if_inst (
 
 taxi_eth_mac_1g #(
     .DATA_W(8),
-    .PADDING_EN(PADDING_EN),
-    .MIN_FRAME_LEN(MIN_FRAME_LEN),
     .PTP_TS_EN(PTP_TS_EN),
     .PTP_TS_W(PTP_TS_W),
     .PFC_EN(PFC_EN),
@@ -368,6 +367,7 @@ eth_mac_1g_inst (
     .stat_tx_pkt_vlan(stat_tx_pkt_vlan),
     .stat_tx_pkt_good(stat_tx_pkt_good),
     .stat_tx_pkt_bad(stat_tx_pkt_bad),
+    .stat_tx_pad_frame(stat_tx_pad_frame),
     .stat_tx_err_oversize(stat_tx_err_oversize),
     .stat_tx_err_user(stat_tx_err_user),
     .stat_tx_err_underflow(stat_tx_err_underflow),
@@ -410,6 +410,8 @@ eth_mac_1g_inst (
     /*
      * Configuration
      */
+    .cfg_tx_pad_en(cfg_tx_pad_en),
+    .cfg_tx_min_pkt_len(cfg_tx_min_pkt_len),
     .cfg_tx_max_pkt_len(cfg_tx_max_pkt_len),
     .cfg_tx_ifg(cfg_tx_ifg),
     .cfg_tx_enable(cfg_tx_enable),

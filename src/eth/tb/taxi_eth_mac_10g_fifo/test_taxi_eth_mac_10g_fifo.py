@@ -78,6 +78,8 @@ class TB:
             period_ns=self.ptp_clk_period
         )
 
+        dut.cfg_tx_pad_en.setimmediatevalue(0)
+        dut.cfg_tx_min_pkt_len.setimmediatevalue(0)
         dut.cfg_tx_max_pkt_len.setimmediatevalue(0)
         dut.cfg_tx_ifg.setimmediatevalue(0)
         dut.cfg_tx_enable.setimmediatevalue(0)
@@ -117,7 +119,7 @@ async def run_test_rx(dut, payload_lengths=None, payload_data=None, ifg=12):
 
     tb.xgmii_source.ifg = ifg
     tb.dut.cfg_tx_ifg.value = ifg
-    tb.dut.cfg_rx_max_pkt_len.value = 9218
+    tb.dut.cfg_rx_max_pkt_len.value = 9218-1
     tb.dut.cfg_rx_enable.value = 1
 
     await tb.reset()
@@ -171,7 +173,9 @@ async def run_test_tx(dut, payload_lengths=None, payload_data=None, ifg=12):
     tb = TB(dut)
 
     tb.xgmii_source.ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len.value = 9218
+    tb.dut.cfg_tx_pad_en.value = 1
+    tb.dut.cfg_tx_min_pkt_len.value = 60-1
+    tb.dut.cfg_tx_max_pkt_len.value = 9218-1
     tb.dut.cfg_tx_ifg.value = ifg
     tb.dut.cfg_tx_enable.value = 1
 
@@ -227,7 +231,9 @@ async def run_test_tx_alignment(dut, payload_data=None, ifg=12):
     byte_width = tb.axis_source.width // 8
 
     tb.xgmii_source.ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len.value = 9218
+    tb.dut.cfg_tx_pad_en.value = 1
+    tb.dut.cfg_tx_min_pkt_len.value = 60-1
+    tb.dut.cfg_tx_max_pkt_len.value = 9218-1
     tb.dut.cfg_tx_ifg.value = ifg
     tb.dut.cfg_tx_enable.value = 1
 
@@ -386,9 +392,7 @@ def test_taxi_eth_mac_10g_fifo(request, data_w, dic_en):
     parameters['TX_GBX_IF_EN'] = 0
     parameters['RX_GBX_IF_EN'] = parameters['TX_GBX_IF_EN']
     parameters['GBX_CNT'] = 1
-    parameters['PADDING_EN'] = 1
     parameters['DIC_EN'] = dic_en
-    parameters['MIN_FRAME_LEN'] = 64
     parameters['PTP_TS_EN'] = 1
     parameters['PTP_TD_EN'] = parameters['PTP_TS_EN']
     parameters['PTP_TS_FMT_TOD'] = 1

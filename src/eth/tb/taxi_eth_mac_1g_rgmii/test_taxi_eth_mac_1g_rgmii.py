@@ -66,6 +66,8 @@ class TB:
 
         dut.stat_rx_fifo_drop.setimmediatevalue(0)
 
+        dut.cfg_tx_pad_en.setimmediatevalue(0)
+        dut.cfg_tx_min_pkt_len.setimmediatevalue(0)
         dut.cfg_tx_max_pkt_len.setimmediatevalue(0)
         dut.cfg_tx_ifg.setimmediatevalue(0)
         dut.cfg_tx_enable.setimmediatevalue(0)
@@ -141,7 +143,7 @@ async def run_test_rx(dut, payload_lengths=None, payload_data=None, ifg=12, spee
 
     tb.rgmii_phy.rx.ifg = ifg
     tb.dut.cfg_tx_ifg.value = ifg
-    tb.dut.cfg_rx_max_pkt_len.value = 9218
+    tb.dut.cfg_rx_max_pkt_len.value = 9218-1
     tb.dut.cfg_rx_enable.value = 1
 
     await tb.reset()
@@ -197,7 +199,9 @@ async def run_test_tx(dut, payload_lengths=None, payload_data=None, ifg=12, spee
     tb = TB(dut, speed)
 
     tb.rgmii_phy.rx.ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len.value = 9218
+    tb.dut.cfg_tx_pad_en.value = 1
+    tb.dut.cfg_tx_min_pkt_len.value = 60-1
+    tb.dut.cfg_tx_max_pkt_len.value = 9218-1
     tb.dut.cfg_tx_ifg.value = ifg
     tb.dut.cfg_tx_enable.value = 1
 
@@ -236,7 +240,9 @@ async def run_test_tx_underrun(dut, ifg=12, speed=1000e6):
     tb = TB(dut, speed)
 
     tb.rgmii_phy.rx.ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len.value = 9218
+    tb.dut.cfg_tx_pad_en.value = 1
+    tb.dut.cfg_tx_min_pkt_len.value = 60-1
+    tb.dut.cfg_tx_max_pkt_len.value = 9218-1
     tb.dut.cfg_tx_ifg.value = ifg
     tb.dut.cfg_tx_enable.value = 1
 
@@ -288,7 +294,9 @@ async def run_test_tx_error(dut, ifg=12, speed=1000e6):
     tb = TB(dut, speed)
 
     tb.rgmii_phy.rx.ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len.value = 9218
+    tb.dut.cfg_tx_pad_en.value = 1
+    tb.dut.cfg_tx_min_pkt_len.value = 60-1
+    tb.dut.cfg_tx_max_pkt_len.value = 9218-1
     tb.dut.cfg_tx_ifg.value = ifg
     tb.dut.cfg_tx_enable.value = 1
 
@@ -326,10 +334,12 @@ async def run_test_lfc(dut, ifg=12, speed=1000e6):
     tb = TB(dut, speed)
 
     tb.rgmii_phy.rx.ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len.value = 9218
+    tb.dut.cfg_tx_pad_en.value = 1
+    tb.dut.cfg_tx_min_pkt_len.value = 60-1
+    tb.dut.cfg_tx_max_pkt_len.value = 9218-1
     tb.dut.cfg_tx_ifg.value = ifg
     tb.dut.cfg_tx_enable.value = 1
-    tb.dut.cfg_rx_max_pkt_len.value = 9218
+    tb.dut.cfg_rx_max_pkt_len.value = 9218-1
     tb.dut.cfg_rx_enable.value = 1
 
     await tb.reset()
@@ -476,10 +486,12 @@ async def run_test_pfc(dut, ifg=12, speed=1000e6):
     tb = TB(dut, speed)
 
     tb.rgmii_phy.rx.ifg = ifg
-    tb.dut.cfg_tx_max_pkt_len.value = 9218
+    tb.dut.cfg_tx_pad_en.value = 1
+    tb.dut.cfg_tx_min_pkt_len.value = 60-1
+    tb.dut.cfg_tx_max_pkt_len.value = 9218-1
     tb.dut.cfg_tx_ifg.value = ifg
     tb.dut.cfg_tx_enable.value = 1
-    tb.dut.cfg_rx_max_pkt_len.value = 9218
+    tb.dut.cfg_rx_max_pkt_len.value = 9218-1
     tb.dut.cfg_rx_enable.value = 1
 
     await tb.reset()
@@ -690,8 +702,6 @@ def test_taxi_eth_mac_1g_rgmii(request, pfc_en):
     parameters['VENDOR'] = "\"XILINX\""
     parameters['FAMILY'] = "\"virtex7\""
     parameters['USE_CLK90'] = 1
-    parameters['PADDING_EN'] = 1
-    parameters['MIN_FRAME_LEN'] = 64
     parameters['PTP_TS_EN'] = 1
     parameters['PTP_TS_W'] = 96
     parameters['TX_TAG_W'] = 16
