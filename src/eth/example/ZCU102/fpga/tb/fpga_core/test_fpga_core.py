@@ -20,17 +20,19 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Combine
 
-from cocotbext.eth import GmiiFrame, GmiiSource, GmiiSink
+from cocotbext.eth import GmiiSource, GmiiSink
 from cocotbext.eth import XgmiiFrame
 from cocotbext.uart import UartSource, UartSink
 
 try:
     from baser import BaseRSerdesSource, BaseRSerdesSink
+    from basex import BaseXSerdesSource, BaseXSerdesSink
 except ImportError:
     # attempt import from current directory
     sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
     try:
         from baser import BaseRSerdesSource, BaseRSerdesSink
+        from basex import BaseXSerdesSource, BaseXSerdesSink
     finally:
         del sys.path[0]
 
@@ -47,43 +49,55 @@ class TB:
         self.sfp_sources = []
         self.sfp_sinks = []
 
-        if dut.SFP_RATE.value == 0:
-            cocotb.start_soon(Clock(dut.sfp0_gmii_clk, 8, units="ns").start())
-            cocotb.start_soon(Clock(dut.sfp1_gmii_clk, 8, units="ns").start())
-            cocotb.start_soon(Clock(dut.sfp2_gmii_clk, 8, units="ns").start())
-            cocotb.start_soon(Clock(dut.sfp3_gmii_clk, 8, units="ns").start())
+        cocotb.start_soon(Clock(dut.sfp_mgt_refclk_0_p, 6.4, units="ns").start())
 
-            self.sfp_sources.append(GmiiSource(dut.sfp0_gmii_rxd, dut.sfp0_gmii_rx_er, dut.sfp0_gmii_rx_dv,
-                dut.sfp0_gmii_clk, dut.sfp0_gmii_rst, dut.sfp0_gmii_clk_en))
-            self.sfp_sinks.append(GmiiSink(dut.sfp0_gmii_txd, dut.sfp0_gmii_tx_er, dut.sfp0_gmii_tx_en,
-                dut.sfp0_gmii_clk, dut.sfp0_gmii_rst, dut.sfp0_gmii_clk_en))
+        for ch in dut.sfp_mac.sfp_mac_inst.ch:
+            gt_inst = ch.ch_inst.gt.gt_inst
 
-            self.sfp_sources.append(GmiiSource(dut.sfp1_gmii_rxd, dut.sfp1_gmii_rx_er, dut.sfp1_gmii_rx_dv,
-                dut.sfp1_gmii_clk, dut.sfp1_gmii_rst, dut.sfp1_gmii_clk_en))
-            self.sfp_sinks.append(GmiiSink(dut.sfp1_gmii_txd, dut.sfp1_gmii_tx_er, dut.sfp1_gmii_tx_en,
-                dut.sfp1_gmii_clk, dut.sfp1_gmii_rst, dut.sfp1_gmii_clk_en))
-
-            self.sfp_sources.append(GmiiSource(dut.sfp2_gmii_rxd, dut.sfp2_gmii_rx_er, dut.sfp2_gmii_rx_dv,
-                dut.sfp2_gmii_clk, dut.sfp2_gmii_rst, dut.sfp2_gmii_clk_en))
-            self.sfp_sinks.append(GmiiSink(dut.sfp2_gmii_txd, dut.sfp2_gmii_tx_er, dut.sfp2_gmii_tx_en,
-                dut.sfp2_gmii_clk, dut.sfp2_gmii_rst, dut.sfp2_gmii_clk_en))
-
-            self.sfp_sources.append(GmiiSource(dut.sfp3_gmii_rxd, dut.sfp3_gmii_rx_er, dut.sfp3_gmii_rx_dv,
-                dut.sfp3_gmii_clk, dut.sfp3_gmii_rst, dut.sfp3_gmii_clk_en))
-            self.sfp_sinks.append(GmiiSink(dut.sfp3_gmii_txd, dut.sfp3_gmii_tx_er, dut.sfp3_gmii_tx_en,
-                dut.sfp3_gmii_clk, dut.sfp3_gmii_rst, dut.sfp3_gmii_clk_en))
-        else:
-            cocotb.start_soon(Clock(dut.sfp_mgt_refclk_0_p, 6.4, units="ns").start())
-
-            for ch in dut.sfp_mac.sfp_mac_inst.ch:
-                gt_inst = ch.ch_inst.gt.gt_inst
-
+            if dut.SFP_RATE.value == 0:
                 if ch.ch_inst.CFG_LOW_LATENCY.value:
-                    clk = 3.102
-                    gbx_cfg = (66, [64, 65])
-                else:
-                    clk = 3.2
+                    clk = 16
                     gbx_cfg = None
+                else:
+                    clk = 16
+                    gbx_cfg = None
+
+                cocotb.start_soon(Clock(gt_inst.tx_clk, clk, units="ns").start())
+                cocotb.start_soon(Clock(gt_inst.rx_clk, clk, units="ns").start())
+
+                self.sfp_sources.append(BaseXSerdesSource(
+                    data=gt_inst.serdes_rx_data,
+                    data_k=gt_inst.serdes_rx_data_k,
+                    data_valid=gt_inst.serdes_rx_data_valid,
+                    clock=gt_inst.rx_clk,
+                    enc_8b10b=False,
+                    gbx_cfg=gbx_cfg
+                ))
+                self.sfp_sinks.append(BaseXSerdesSink(
+                    data=gt_inst.serdes_tx_data,
+                    data_k=gt_inst.serdes_tx_data_k,
+                    data_valid=gt_inst.serdes_tx_data_valid,
+                    gbx_sync=gt_inst.serdes_tx_gbx_sync,
+                    clock=gt_inst.tx_clk,
+                    dec_8b10b=False,
+                    gbx_cfg=gbx_cfg
+                ))
+
+            else:
+                if ch.ch_inst.DATA_W.value == 64:
+                    if ch.ch_inst.CFG_LOW_LATENCY.value:
+                        clk = 6.206
+                        gbx_cfg = (66, [64, 65])
+                    else:
+                        clk = 6.4
+                        gbx_cfg = None
+                else:
+                    if ch.ch_inst.CFG_LOW_LATENCY.value:
+                        clk = 3.102
+                        gbx_cfg = (66, [64, 65])
+                    else:
+                        clk = 3.2
+                        gbx_cfg = None
 
                 cocotb.start_soon(Clock(gt_inst.tx_clk, clk, units="ns").start())
                 cocotb.start_soon(Clock(gt_inst.rx_clk, clk, units="ns").start())
@@ -123,28 +137,16 @@ class TB:
     async def init(self):
 
         self.dut.rst_125mhz.setimmediatevalue(0)
-        self.dut.sfp0_gmii_rst.setimmediatevalue(0)
-        self.dut.sfp1_gmii_rst.setimmediatevalue(0)
-        self.dut.sfp2_gmii_rst.setimmediatevalue(0)
-        self.dut.sfp3_gmii_rst.setimmediatevalue(0)
 
         for k in range(10):
             await RisingEdge(self.dut.clk_125mhz)
 
         self.dut.rst_125mhz.value = 1
-        self.dut.sfp0_gmii_rst.value = 1
-        self.dut.sfp1_gmii_rst.value = 1
-        self.dut.sfp2_gmii_rst.value = 1
-        self.dut.sfp3_gmii_rst.value = 1
 
         for k in range(10):
             await RisingEdge(self.dut.clk_125mhz)
 
         self.dut.rst_125mhz.value = 0
-        self.dut.sfp0_gmii_rst.value = 0
-        self.dut.sfp1_gmii_rst.value = 0
-        self.dut.sfp2_gmii_rst.value = 0
-        self.dut.sfp3_gmii_rst.value = 0
 
         for k in range(10):
             await RisingEdge(self.dut.clk_125mhz)
@@ -153,51 +155,7 @@ class TB:
 async def mac_test(tb, source, sink):
     tb.log.info("Test MAC")
 
-    tb.log.info("Multiple small packets")
-
-    count = 64
-
-    pkts = [bytearray([(x+k) % 256 for x in range(60)]) for k in range(count)]
-
-    for p in pkts:
-        await source.send(GmiiFrame.from_payload(p))
-
-    for k in range(count):
-        rx_frame = await sink.recv()
-
-        tb.log.info("RX frame: %s", rx_frame)
-
-        assert rx_frame.get_payload() == pkts[k]
-        assert rx_frame.check_fcs()
-        assert rx_frame.error is None
-
-    tb.log.info("Multiple large packets")
-
-    count = 32
-
-    pkts = [bytearray([(x+k) % 256 for x in range(1514)]) for k in range(count)]
-
-    for p in pkts:
-        await source.send(GmiiFrame.from_payload(p))
-
-    for k in range(count):
-        rx_frame = await sink.recv()
-
-        tb.log.info("RX frame: %s", rx_frame)
-
-        assert rx_frame.get_payload() == pkts[k]
-        assert rx_frame.check_fcs()
-        assert rx_frame.error is None
-
-    tb.log.info("MAC test done")
-
-
-async def mac_test_10g(tb, source, sink):
-    tb.log.info("Test MAC")
-
-    tb.log.info("Wait for block lock")
-    for k in range(1200):
-        await RisingEdge(tb.dut.clk_125mhz)
+    sink.clear()
 
     tb.log.info("Multiple small packets")
 
@@ -245,13 +203,13 @@ async def run_test(dut):
 
     tests = []
 
+    tb.log.info("Wait for block lock")
+    for k in range(1200):
+        await RisingEdge(dut.clk_125mhz)
+
     for k in range(len(tb.sfp_sources)):
-        if dut.SFP_RATE.value == 0:
-            tb.log.info("Start SFP %d 1G MAC loopback test", k)
-            tests.append(cocotb.start_soon(mac_test(tb, tb.sfp_sources[k], tb.sfp_sinks[k])))
-        else:
-            tb.log.info("Start SFP %d 10G MAC loopback test", k)
-            tests.append(cocotb.start_soon(mac_test_10g(tb, tb.sfp_sources[k], tb.sfp_sinks[k])))
+        tb.log.info("Start SFP %d MAC loopback test", k)
+        tests.append(cocotb.start_soon(mac_test(tb, tb.sfp_sources[k], tb.sfp_sinks[k])))
 
     await Combine(*tests)
 
@@ -280,8 +238,8 @@ def process_f_files(files):
     return list(lst.values())
 
 
-@pytest.mark.parametrize("sfp_rate", [0, 1])
-def test_fpga_core(request, sfp_rate):
+@pytest.mark.parametrize(("sfp_rate", "mac_data_w"), [(0, 16), (1, 32), (1, 64)])
+def test_fpga_core(request, sfp_rate, mac_data_w):
     dut = "fpga_core"
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -290,6 +248,7 @@ def test_fpga_core(request, sfp_rate):
         os.path.join(rtl_dir, f"{dut}.sv"),
         os.path.join(taxi_src_dir, "eth", "rtl", "taxi_eth_mac_1g_fifo.f"),
         os.path.join(taxi_src_dir, "eth", "rtl", "us", "taxi_eth_mac_25g_us.f"),
+        os.path.join(taxi_src_dir, "eth", "rtl", "us", "taxi_eth_mac_1g_basex_us.f"),
         os.path.join(taxi_src_dir, "xfcp", "rtl", "taxi_xfcp_if_uart.f"),
         os.path.join(taxi_src_dir, "xfcp", "rtl", "taxi_xfcp_switch.sv"),
         os.path.join(taxi_src_dir, "xfcp", "rtl", "taxi_xfcp_mod_apb.f"),
@@ -307,6 +266,9 @@ def test_fpga_core(request, sfp_rate):
     parameters['VENDOR'] = "\"XILINX\""
     parameters['FAMILY'] = "\"zynquplus\""
     parameters['SFP_RATE'] = f"1'b{sfp_rate}"
+    parameters['CFG_LOW_LATENCY'] = "1'b1"
+    parameters['COMBINED_MAC_PCS'] = "1'b1"
+    parameters['MAC_DATA_W'] = mac_data_w
 
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
 
