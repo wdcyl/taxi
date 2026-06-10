@@ -291,6 +291,8 @@ class BaseXSerdesSource():
         last_d = 0
         self.active = False
 
+        clock_edge_event = RisingEdge(self.clock)
+
         clk_period = 0
         last_clk = 0
         gbx_delay = 0
@@ -299,7 +301,7 @@ class BaseXSerdesSource():
         data_k = 0
 
         while True:
-            await RisingEdge(self.clock)
+            await clock_edge_event
 
             sim_time = get_sim_time()
             if last_clk:
@@ -625,6 +627,8 @@ class BaseXSerdesSink:
         in_pre = False
         self.active = False
 
+        clock_edge_event = RisingEdge(self.clock)
+
         clk_period = 0
         last_clk = 0
         gbx_delay = 0
@@ -634,7 +638,7 @@ class BaseXSerdesSink:
         data_k = 0
 
         while True:
-            await RisingEdge(self.clock)
+            await clock_edge_event
 
             sim_time = get_sim_time()
             if last_clk:
